@@ -77,25 +77,51 @@ void init_sine_table(void)
  #define PUTCHAR_PROTOTYPE int fputc(int ch, FILE *f)
 #endif
 
+/**
+ * @brief Printf character output redirection (UART3 DMA TX)
+ * @details Non-blocking printf implementation using Queue + DMA
+ *
+ * Operation Modes:
+ * 1. Queue Uninitialized (buf_size == 0):
+ *    - Blocking UART transmission (only during early initialization)
+ *    - Prevents NULL pointer crash before init_UART_COM() is called
+ *
+ * 2. Queue Initialized (buf_size > 0):
+ *    - Non-blocking: Enqueue character and return immediately
+ *    - DMA transmits queue data in background (via UART3_Process_TX_Queue)
+ *
+ * 3. Queue Nearly Full:
+ *    - Drop character to prevent blocking (maintains real-time performance)
+ *
+ * @param ch Character to output
+ * @return Always returns ch
+ */
 PUTCHAR_PROTOTYPE
 {
- // Use queue instead of blocking UART transmit
- // This allows printf() to be non-blocking
+	// ========================================================================
+	// Case 1: Queue not initialized yet (시스템 시작 초기에만 발생)
+	// ========================================================================
+	if (tx_UART3_queue.buf_size == 0)
+	{
+		// Blocking mode: 초기화 과정의 디버그 메시지를 안전하게 출력
+		// (init_UART_COM() 호출 전에 printf가 실행되는 경우 대비)
+		HAL_UART_Transmit(&huart3, (uint8_t *)&ch, 1, 10);
+		return ch;
+	}
 
- // Safety: Check if queue is initialized (buf_size > 0)
- if (tx_UART3_queue.buf_size == 0)
- {
-     // Queue not initialized yet - use blocking mode temporarily
-     HAL_UART_Transmit(&huart3, (uint8_t *)&ch, 1, 10);
-     return ch;
- }
+	// ========================================================================
+	// Case 2: Queue 초기화 완료 - Non-blocking 모드 (정상 동작)
+	// ========================================================================
+	// Queue에 여유 공간이 있으면 문자 저장 (10바이트 여유 확보)
+	if (Len_queue(&tx_UART3_queue) < (tx_UART3_queue.buf_size - 10))
+	{
+		Enqueue(&tx_UART3_queue, (uint8_t)ch);
+	}
+	// Queue가 거의 가득 차면 문자 버림 (블로킹 방지)
+	// → SPI 수신 등 실시간 작업에 영향 없음
 
- // If queue is full, drop the character (prevents blocking)
- if (Len_queue(&tx_UART3_queue) < (tx_UART3_queue.buf_size - 10))
- {
-     Enqueue(&tx_UART3_queue, (uint8_t)ch);
- }
- return ch;
+	// 즉시 복귀 (DMA가 백그라운드에서 전송 처리)
+	return ch;
 }
 
 int _write(int file, char *data, int len)
