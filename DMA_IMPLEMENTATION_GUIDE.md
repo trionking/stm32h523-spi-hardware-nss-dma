@@ -1,11 +1,11 @@
-# DMA Implementation Guide - STM32H523 Audio Streaming
+# Hardware NSS + DMA Implementation Guide - STM32H523 Audio Streaming
 
 ## 개요
 
-이 문서는 STM32H523 기반 Audio Streaming 프로젝트에서 **블로킹 방식에서 DMA 방식으로 전환**한 구현 절차와 개선점을 설명합니다.
+이 문서는 STM32H523 기반 Audio Streaming 프로젝트에서 **Hardware NSS + DMA 방식으로 전환**한 구현 절차와 개선점을 설명합니다.
 
 - **UART3**: Blocking TX → DMA TX (Non-blocking printf)
-- **SPI1**: IT Mode + Software NSS → DMA + Hardware NSS
+- **SPI1**: Software NSS + EXTI → **Hardware NSS** + DMA (핵심 개선)
 
 ## 목차
 
@@ -113,14 +113,14 @@ while(1) {
 
 ---
 
-## SPI1 DMA 구현
+## SPI1 Hardware NSS + DMA 구현
 
 ### 진화 과정
 
-#### 1단계: IT Mode + Software NSS (이전)
+#### 이전: Software NSS + EXTI (IT 모드)
 
 ```c
-// EXTI 인터럽트로 CS 감지
+// PA15를 GPIO EXTI로 설정하여 CS 감지
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
     if (GPIO_Pin == SPI1_EXT_NSS_Pin) {
         spi_handler_cs_falling();  // CS LOW → IT 수신 시작
@@ -132,12 +132,13 @@ void spi_handler_cs_falling(void) {
 }
 ```
 
-**문제**:
+**핵심 문제**:
+- **Software NSS**: PA15를 GPIO EXTI로 사용 → 소프트웨어로 CS 감지
 - CS falling edge → EXTI 인터럽트 → IT 수신 시작
-- **지연 발생**: EXTI 처리 시간 + IT 시작 시간
+- **지연 발생**: EXTI 처리 시간 + IT 시작 시간 (5-10μs)
 - Master가 CS 직후 바로 데이터를 보내면 **첫 바이트 손실 가능**
 
-#### 2단계: DMA + Hardware NSS (현재)
+#### 현재: Hardware NSS + DMA (핵심 개선)
 
 ##### CubeMX 설정
 
@@ -212,10 +213,10 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 
 ### 성능 비교
 
-| 방식 | CS 감지 | 데이터 수신 시작 | 지연 시간 | 타이밍 정확도 |
-|------|---------|-----------------|-----------|--------------|
-| IT + Software NSS | EXTI 인터럽트 | ISR에서 HAL_SPI_Receive_IT | ~5-10μs | 낮음 |
-| DMA + Hardware NSS | H/W 자동 | 즉시 (H/W 제어) | ~0μs | 매우 높음 |
+| 방식 | NSS 제어 | CS 감지 | 데이터 수신 시작 | 지연 시간 | 타이밍 정확도 |
+|------|----------|---------|-----------------|-----------|--------------|
+| Software NSS + EXTI | GPIO EXTI | EXTI 인터럽트 | ISR에서 IT/DMA 시작 | ~5-10μs | 낮음 |
+| **Hardware NSS** + DMA | **SPI H/W** | **H/W 자동** | **즉시 (H/W 제어)** | **~0μs** | **매우 높음** |
 
 ---
 
@@ -224,13 +225,13 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 ### 전체 시스템
 
 ```
-Before (Blocking UART + IT SPI):
+Before (Blocking UART + Software NSS):
   printf() ──[BLOCK]──> UART TX 완료 (87μs/byte)
-  CS LOW ──[EXTI]──> ISR ──[IT]──> SPI RX (5-10μs 지연)
+  CS LOW ──[GPIO EXTI]──> ISR ──[IT 시작]──> SPI RX (5-10μs 지연)
 
-After (DMA UART + DMA SPI):
+After (DMA UART + Hardware NSS):
   printf() ──[Queue]──> 즉시 복귀 (DMA 백그라운드 전송)
-  CS LOW ──[H/W]──> SPI RX 즉시 시작 (지연 없음)
+  CS LOW ──[SPI H/W 감지]──> SPI RX 즉시 시작 (지연 거의 0)
 ```
 
 ### 측정 결과
@@ -239,9 +240,9 @@ After (DMA UART + DMA SPI):
 - Blocking: 100바이트 printf → ~8.7ms CPU 블로킹
 - DMA: 100바이트 printf → ~1μs (Queue 저장만)
 
-**SPI1 RX**:
-- Software NSS + IT: CS 후 5-10μs 지연
-- Hardware NSS + DMA: CS 후 즉시 수신 (지연 거의 0)
+**SPI1 RX** (핵심 개선):
+- Software NSS + EXTI: CS 후 5-10μs 지연 (소프트웨어 처리)
+- **Hardware NSS** + DMA: CS 후 **즉시 수신** (하드웨어 자동 제어, 지연 거의 0)
 
 ---
 
