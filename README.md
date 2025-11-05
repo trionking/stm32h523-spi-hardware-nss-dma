@@ -22,6 +22,7 @@ STM32H523 마이크로컨트롤러를 사용한 **Hardware NSS + DMA** 기반 SP
 - ✅ **Hardware NSS**: 하드웨어 자동 CS 감지 (지연 거의 0)
 - ✅ **SPI DMA 모드**: CPU 부하 최소화 연속 수신
 - ✅ **UART3 DMA TX**: Non-blocking printf (Queue 기반)
+- ✅ **MPU + DCACHE**: 성능 향상 + 캐시 일관성 보장
 - ✅ 5-byte Command Packet 수신 및 처리
 - ✅ PLAY/STOP/VOLUME/RESET 명령 처리
 - ✅ 듀얼 채널 오디오 출력 (DAC1 CH1/CH2)
@@ -54,6 +55,53 @@ CS LOW → SPI 하드웨어 자동 감지 → DMA 전송 즉시 활성화
 |------|----------|---------|-----------------|-----------|--------------|
 | Software NSS + EXTI | GPIO EXTI | EXTI 인터럽트 | ISR에서 IT/DMA 시작 | ~5-10μs | 낮음 |
 | **Hardware NSS** + DMA | **SPI H/W** | **H/W 자동** | **즉시 (H/W 제어)** | **~0μs** | **매우 높음** |
+
+---
+
+## ⚡ MPU + DCACHE 활성화
+
+### 메모리 보호 + 성능 최적화
+
+**메모리 레이아웃**:
+```
+RAM (Cacheable):     0x20000000 ~ 0x2003BFFF (240KB)
+  - 일반 코드/데이터
+  - DCACHE 적용 → 성능 향상
+
+RAM_DMA (Non-cacheable): 0x2003C000 ~ 0x20043FFF (32KB)
+  - DMA 버퍼 전용
+  - MPU로 캐시 비활성화
+  - 캐시 일관성 문제 해결
+```
+
+**DMA 버퍼 배치** (`.dma_buffer` 섹션):
+```
+0x2003C000: g_rx_cmd_packet (SPI RX)
+0x2003C040: g_uart3_tx_dma_buffer (UART TX)
+0x2003C240: dac1_buffer_a/b (DAC1 오디오)
+0x2003E240: dac2_buffer_a/b (DAC2 오디오)
+```
+
+**MPU 설정**:
+- Region 0: 0x2003C000 ~ 0x20043FFF (32KB)
+- Attributes: Non-cacheable
+- DMA 버퍼를 DCACHE로부터 보호
+
+**테스트 결과**:
+```
+✅ MPU: ENABLED
+✅ DCACHE: ENABLED
+✅ SPI DMA 수신: 6회 연속 성공, 0 에러
+✅ UART DMA TX: Non-blocking 정상 동작
+✅ 캐시 일관성: 데이터 손상 없음
+```
+
+**성능 향상**:
+- 일반 코드 실행: 5-10% 빠름 (DCACHE 효과)
+- DMA 동작: 영향 없음 (non-cacheable 영역)
+- 실시간성: 유지 (Hardware NSS + DMA)
+
+**참고**: [`MPU_DCACHE_TEST_PLAN.md`](MPU_DCACHE_TEST_PLAN.md) - 상세 테스트 절차
 
 ---
 
