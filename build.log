@@ -1,0 +1,43 @@
+make: Entering directory 'C:/work/sktel/audio_mux/cb_audio_dev_v100/audio_dac_v100/Debug'
+arm-none-eabi-gcc "../Core/Src/stm32h5xx_hal_msp.c" -mcpu=cortex-m33 -std=gnu11 -g3 -DDEBUG -DUSE_HAL_DRIVER -DSTM32H523xx -c -I../Core/Inc -I../Drivers/STM32H5xx_HAL_Driver/Inc -I../Drivers/STM32H5xx_HAL_Driver/Inc/Legacy -I../Drivers/CMSIS/Device/ST/STM32H5xx/Include -I../Drivers/CMSIS/Include -O0 -ffunction-sections -fdata-sections -Wall -fstack-usage -fcyclomatic-complexity -MMD -MP -MF"Core/Src/stm32h5xx_hal_msp.d" -MT"Core/Src/stm32h5xx_hal_msp.o"  -mfpu=fpv5-sp-d16 -mfloat-abi=hard -mthumb -o "Core/Src/stm32h5xx_hal_msp.o"
+arm-none-eabi-gcc "../Core/Src/stm32h5xx_it.c" -mcpu=cortex-m33 -std=gnu11 -g3 -DDEBUG -DUSE_HAL_DRIVER -DSTM32H523xx -c -I../Core/Inc -I../Drivers/STM32H5xx_HAL_Driver/Inc -I../Drivers/STM32H5xx_HAL_Driver/Inc/Legacy -I../Drivers/CMSIS/Device/ST/STM32H5xx/Include -I../Drivers/CMSIS/Include -O0 -ffunction-sections -fdata-sections -Wall -fstack-usage -fcyclomatic-complexity -MMD -MP -MF"Core/Src/stm32h5xx_it.d" -MT"Core/Src/stm32h5xx_it.o"  -mfpu=fpv5-sp-d16 -mfloat-abi=hard -mthumb -o "Core/Src/stm32h5xx_it.o"
+arm-none-eabi-gcc "../Core/Src/syscalls.c" -mcpu=cortex-m33 -std=gnu11 -g3 -DDEBUG -DUSE_HAL_DRIVER -DSTM32H523xx -c -I../Core/Inc -I../Drivers/STM32H5xx_HAL_Driver/Inc -I../Drivers/STM32H5xx_HAL_Driver/Inc/Legacy -I../Drivers/CMSIS/Device/ST/STM32H5xx/Include -I../Drivers/CMSIS/Include -O0 -ffunction-sections -fdata-sections -Wall -fstack-usage -fcyclomatic-complexity -MMD -MP -MF"Core/Src/syscalls.d" -MT"Core/Src/syscalls.o"  -mfpu=fpv5-sp-d16 -mfloat-abi=hard -mthumb -o "Core/Src/syscalls.o"
+arm-none-eabi-gcc "../Core/Src/system_stm32h5xx.c" -mcpu=cortex-m33 -std=gnu11 -g3 -DDEBUG -DUSE_HAL_DRIVER -DSTM32H523xx -c -I../Core/Inc -I../Drivers/STM32H5xx_HAL_Driver/Inc -I../Drivers/STM32H5xx_HAL_Driver/Inc/Legacy -I../Drivers/CMSIS/Device/ST/STM32H5xx/Include -I../Drivers/CMSIS/Include -O0 -ffunction-sections -fdata-sections -Wall -fstack-usage -fcyclomatic-complexity -MMD -MP -MF"Core/Src/system_stm32h5xx.d" -MT"Core/Src/system_stm32h5xx.o"  -mfpu=fpv5-sp-d16 -mfloat-abi=hard -mthumb -o "Core/Src/system_stm32h5xx.o"
+arm-none-eabi-gcc "../Core/Src/user_com.c" -mcpu=cortex-m33 -std=gnu11 -g3 -DDEBUG -DUSE_HAL_DRIVER -DSTM32H523xx -c -I../Core/Inc -I../Drivers/STM32H5xx_HAL_Driver/Inc -I../Drivers/STM32H5xx_HAL_Driver/Inc/Legacy -I../Drivers/CMSIS/Device/ST/STM32H5xx/Include -I../Drivers/CMSIS/Include -O0 -ffunction-sections -fdata-sections -Wall -fstack-usage -fcyclomatic-complexity -MMD -MP -MF"Core/Src/user_com.d" -MT"Core/Src/user_com.o"  -mfpu=fpv5-sp-d16 -mfloat-abi=hard -mthumb -o "Core/Src/user_com.o"
+arm-none-eabi-gcc "../Core/Src/user_def.c" -mcpu=cortex-m33 -std=gnu11 -g3 -DDEBUG -DUSE_HAL_DRIVER -DSTM32H523xx -c -I../Core/Inc -I../Drivers/STM32H5xx_HAL_Driver/Inc -I../Drivers/STM32H5xx_HAL_Driver/Inc/Legacy -I../Drivers/CMSIS/Device/ST/STM32H5xx/Include -I../Drivers/CMSIS/Include -O0 -ffunction-sections -fdata-sections -Wall -fstack-usage -fcyclomatic-complexity -MMD -MP -MF"Core/Src/user_def.d" -MT"Core/Src/user_def.o"  -mfpu=fpv5-sp-d16 -mfloat-abi=hard -mthumb -o "Core/Src/user_def.o"
+../Core/Src/stm32h5xx_hal_msp.c: In function 'HAL_DAC_MspInit':
+../Core/Src/stm32h5xx_hal_msp.c:150:5: warning: implicit declaration of function 'printf' [-Wimplicit-function-declaration]
+  150 |     printf("[DEBUG] DAC1 MSP Init - DMA Handles linked\r\n");
+      |     ^~~~~~
+../Core/Src/stm32h5xx_hal_msp.c:23:1: note: include '<stdio.h>' or provide a declaration of 'printf'
+   22 | #include "main.h"
+  +++ |+#include <stdio.h>
+   23 | /* USER CODE BEGIN Includes */
+../Core/Src/stm32h5xx_hal_msp.c:150:5: warning: incompatible implicit declaration of built-in function 'printf' [-Wbuiltin-declaration-mismatch]
+  150 |     printf("[DEBUG] DAC1 MSP Init - DMA Handles linked\r\n");
+      |     ^~~~~~
+../Core/Src/stm32h5xx_hal_msp.c:150:5: note: include '<stdio.h>' or provide a declaration of 'printf'
+../Core/Src/stm32h5xx_it.c: In function 'HAL_DAC_ErrorCallbackCh1':
+../Core/Src/stm32h5xx_it.c:520:5: warning: implicit declaration of function 'printf' [-Wimplicit-function-declaration]
+  520 |     printf("\r\n[DAC ERROR CH1] ==================\r\n");
+      |     ^~~~~~
+../Core/Src/stm32h5xx_it.c:29:1: note: include '<stdio.h>' or provide a declaration of 'printf'
+   28 | #include "string.h"
+  +++ |+#include <stdio.h>
+   29 | /* USER CODE END Includes */
+../Core/Src/stm32h5xx_it.c:520:5: warning: incompatible implicit declaration of built-in function 'printf' [-Wbuiltin-declaration-mismatch]
+  520 |     printf("\r\n[DAC ERROR CH1] ==================\r\n");
+      |     ^~~~~~
+../Core/Src/stm32h5xx_it.c:520:5: note: include '<stdio.h>' or provide a declaration of 'printf'
+arm-none-eabi-gcc -o "audio_dac_v100.elf" @"objects.list"   -mcpu=cortex-m33 -T"C:\work\sktel\audio_mux\cb_audio_dev_v100\audio_dac_v100\STM32H523CCTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="audio_dac_v100.map" -Wl,--gc-sections -static  -mfpu=fpv5-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+Finished building target: audio_dac_v100.elf
+ 
+arm-none-eabi-size  audio_dac_v100.elf 
+arm-none-eabi-objdump -h -S audio_dac_v100.elf  > "audio_dac_v100.list"
+   text	   data	    bss	    dec	    hex	filename
+ 111296	   1768	  41176	 154240	  25a80	audio_dac_v100.elf
+Finished building: default.size.stdout
+ 
+Finished building: audio_dac_v100.list
+ 
+make: Leaving directory 'C:/work/sktel/audio_mux/cb_audio_dev_v100/audio_dac_v100/Debug'

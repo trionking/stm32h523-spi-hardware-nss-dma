@@ -1,0 +1,40 @@
+# STM32CubeIDE Build outputs
+Debug/
+Release/
+*.elf
+*.bin
+*.hex
+*.map
+*.list
+*.su
+*.d
+*.o
+
+# STM32CubeIDE project files (keep .project, .cproject)
+.settings/
+
+# Compiled Object files
+*.slo
+*.lo
+*.obj
+
+# Dependency files
+*.dep
+
+# Build directories
+build/
+Build/
+
+# IDE specific files
+*.launch
+*.tmp
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Backup files
+*~
+*.bak
+*.swp
+*.swo

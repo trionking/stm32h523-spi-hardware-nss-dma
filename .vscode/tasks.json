@@ -1,0 +1,115 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Build (Debug)",
+            "type": "shell",
+            "command": "C:/ST/STM32CubeIDE_1.18.0/STM32CubeIDE/plugins/com.st.stm32cube.ide.mcu.externaltools.make.win32_2.2.0.202409170845/tools/bin/make.exe",
+            "args": [
+                "-j8",
+                "all"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}/Debug"
+            },
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "Clean (Debug)",
+            "type": "shell",
+            "command": "C:/ST/STM32CubeIDE_1.18.0/STM32CubeIDE/plugins/com.st.stm32cube.ide.mcu.externaltools.make.win32_2.2.0.202409170845/tools/bin/make.exe",
+            "args": [
+                "clean"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}/Debug"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Rebuild (Debug)",
+            "type": "shell",
+            "dependsOrder": "sequence",
+            "dependsOn": [
+                "Clean (Debug)",
+                "Build (Debug)"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "Flash to Target",
+            "type": "shell",
+            "command": "STM32_Programmer_CLI.exe",
+            "args": [
+                "-c",
+                "port=SWD",
+                "reset=HWrst",
+                "-w",
+                "${workspaceFolder}/Debug/${workspaceFolderBasename}.elf",
+                "-v",
+                "-rst"
+            ],
+            "problemMatcher": [],
+            "dependsOn": "Build (Debug)",
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "Erase Flash",
+            "type": "shell",
+            "command": "STM32_Programmer_CLI.exe",
+            "args": [
+                "-c",
+                "port=SWD",
+                "reset=HWrst",
+                "-e",
+                "all"
+            ],
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            }
+        },
+        {
+            "label": "Build and Flash",
+            "type": "shell",
+            "dependsOrder": "sequence",
+            "dependsOn": [
+                "Build (Debug)",
+                "Flash to Target"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "type": "shell",
+            "label": "Serial Monitor",
+            "command": "python",
+            "args": [
+                "-m",
+                "serial.tools.miniterm",
+                "COM9",
+                "115200"
+            ],
+            "problemMatcher": [],
+            "presentation": {
+                "reveal": "always",
+                "panel": "new",
+                "focus": true
+            },
+            "isBackground": false
+        }
+    ]
+}

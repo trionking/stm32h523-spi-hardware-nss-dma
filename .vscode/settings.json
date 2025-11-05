@@ -1,0 +1,27 @@
+{
+    "files.associations": {
+        "*.h": "c"
+    },
+    "C_Cpp.errorSquiggles": "enabled",
+    "C_Cpp.intelliSenseEngine": "default",
+    "C_Cpp.default.compilerPath": "arm-none-eabi-gcc",
+    "files.exclude": {
+        "**/.git": true,
+        "**/.svn": true,
+        "**/.hg": true,
+        "**/CVS": true,
+        "**/.DS_Store": true,
+        "**/Debug": false,
+        "**/Release": false
+    },
+    "search.exclude": {
+        "**/Debug": true,
+        "**/Release": true,
+        "**/.metadata": true
+    },
+    "editor.formatOnSave": false,
+    "editor.tabSize": 4,
+    "editor.insertSpaces": false,
+    "files.trimTrailingWhitespace": true,
+    "files.insertFinalNewline": true
+}

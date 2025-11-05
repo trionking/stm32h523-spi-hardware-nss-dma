@@ -1,0 +1,33 @@
+{
+    "configurations": [
+        {
+            "name": "STM32",
+            "includePath": [
+                "${workspaceFolder}/Core/Inc",
+                "${workspaceFolder}/Drivers/STM32H5xx_HAL_Driver/Inc",
+                "${workspaceFolder}/Drivers/STM32H5xx_HAL_Driver/Inc/Legacy",
+                "${workspaceFolder}/Drivers/CMSIS/Device/ST/STM32H5xx/Include",
+                "${workspaceFolder}/Drivers/CMSIS/Include",
+                "C:/ST/STM32CubeCLT_1.19.0/GNU-tools-for-STM32/lib/gcc/arm-none-eabi/13.3.1/include",
+                "C:/ST/STM32CubeCLT_1.19.0/GNU-tools-for-STM32/lib/gcc/arm-none-eabi/13.3.1/include-fixed",
+                "C:/ST/STM32CubeCLT_1.19.0/GNU-tools-for-STM32/arm-none-eabi/include"
+            ],
+            "defines": [
+                "USE_HAL_DRIVER",
+                "STM32H523xx",
+                "DEBUG"
+            ],
+            "compilerPath": "C:/ST/STM32CubeCLT_1.19.0/GNU-tools-for-STM32/bin/arm-none-eabi-gcc.exe",
+            "cStandard": "c11",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "gcc-arm",
+            "compilerArgs": [
+                "-mcpu=cortex-m33",
+                "-mthumb",
+                "-mfpu=fpv5-sp-d16",
+                "-mfloat-abi=hard"
+            ]
+        }
+    ],
+    "version": 4
+}
