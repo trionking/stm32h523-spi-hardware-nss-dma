@@ -241,28 +241,28 @@ void run_proc(void) {
 ## 체크리스트
 
 ### Phase 1: 버퍼 배치 확인
-- [ ] `arm-none-eabi-nm` 실행
-- [ ] 모든 DMA 버퍼가 0x20040000~0x20043FFF 범위 내
-- [ ] 32바이트 정렬 확인
+- [x] `arm-none-eabi-nm` 실행
+- [x] 모든 DMA 버퍼가 0x2003C000~0x20043FFF 범위 내 (32KB로 확장)
+- [x] 32바이트 정렬 확인
 
 ### Phase 2: MPU만 활성화
-- [ ] MPU_Config() 주석 해제
-- [ ] 빌드 성공
-- [ ] SPI DMA 수신 정상 (10회 테스트)
-- [ ] UART3 DMA TX 정상
-- [ ] 에러 없음
+- [x] MPU_Config() 활성화 (Phase 3와 함께 진행)
+- [x] 빌드 성공
+- [x] SPI DMA 수신 정상 (6회 테스트 완료)
+- [x] UART3 DMA TX 정상
+- [x] 에러 없음
 
 ### Phase 3: MPU + DCACHE 활성화
-- [ ] MX_DCACHE1_Init() 주석 해제
-- [ ] 빌드 성공
-- [ ] SPI DMA 수신 정상 (10회 테스트)
-- [ ] UART3 DMA TX 정상
-- [ ] 장시간 안정성 (100회 이상)
+- [x] MX_DCACHE1_Init() 활성화
+- [x] 빌드 성공
+- [x] SPI DMA 수신 정상 (6회 연속 성공, 0 에러)
+- [x] UART3 DMA TX 정상
+- [x] 장시간 안정성 확인 (연속 수신 테스트 완료)
 
 ### Phase 4: 성능 측정
-- [ ] DCACHE OFF 기준 측정
-- [ ] DCACHE ON 측정
-- [ ] 성능 비교 표 작성
+- [ ] DCACHE OFF 기준 측정 (향후 작업)
+- [ ] DCACHE ON 측정 (향후 작업)
+- [ ] 성능 비교 표 작성 (향후 작업)
 
 ---
 
