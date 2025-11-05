@@ -105,7 +105,7 @@ int main(void)
   /* MCU Configuration--------------------------------------------------------*/
 
   /* MPU Configuration--------------------------------------------------------*/
-  //MPU_Config();
+  MPU_Config();
 
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
   HAL_Init();
@@ -125,7 +125,7 @@ int main(void)
   MX_GPIO_Init();
   MX_GPDMA1_Init();
   MX_DAC1_Init();
-  //MX_DCACHE1_Init();
+  MX_DCACHE1_Init();
   MX_ICACHE_Init();
   MX_SPI1_Init();
   MX_USART3_UART_Init();
@@ -622,7 +622,7 @@ void MPU_Config(void)
   */
   MPU_InitStruct.Enable = MPU_REGION_ENABLE;
   MPU_InitStruct.Number = MPU_REGION_NUMBER0;
-  MPU_InitStruct.BaseAddress = 0x20040000;
+  MPU_InitStruct.BaseAddress = 0x2003C000;
   MPU_InitStruct.LimitAddress = 0x20043FFF;
   MPU_InitStruct.AttributesIndex = MPU_ATTRIBUTES_NUMBER0;
   MPU_InitStruct.AccessPermission = MPU_REGION_ALL_RW;

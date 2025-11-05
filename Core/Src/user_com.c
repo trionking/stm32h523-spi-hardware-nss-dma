@@ -237,6 +237,9 @@ COM_Idy_Typ UART3_GetLine(uint8_t *line_buf)
 
 // DMA TX state and buffer
 volatile uint8_t g_uart3_tx_busy = 0;
+
+// DMA TX buffer - placed in non-cacheable RAM for DCACHE compatibility
+__attribute__((section(".dma_buffer"))) __attribute__((aligned(32)))
 static uint8_t g_uart3_tx_dma_buffer[DMA_TX_BUFFER_SIZE];
 
 /**
@@ -289,5 +292,13 @@ void UART3_TX_Complete_Callback(void)
 
 	// Immediately process next chunk if available (non-blocking)
 	UART3_Process_TX_Queue();
+}
+
+/**
+ * @brief Get address of UART3 TX DMA buffer (for debugging)
+ */
+uint32_t UART3_Get_TX_Buffer_Addr(void)
+{
+	return (uint32_t)g_uart3_tx_dma_buffer;
 }
 

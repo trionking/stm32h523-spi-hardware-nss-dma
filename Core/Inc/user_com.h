@@ -71,4 +71,7 @@ COM_Idy_Typ UART3_GetLine(uint8_t *line_buf);
 void UART3_Process_TX_Queue(void);
 void UART3_TX_Complete_Callback(void);
 
+// Debug function
+uint32_t UART3_Get_TX_Buffer_Addr(void);
+
 #endif /* INC_USER_COM_H_ */

@@ -1110,6 +1110,49 @@ void init_proc(void)
     printf("State: %lu (0=READY, 1=BUSY)\r\n", huart3.gState);
     printf("\r\n** If you can see this message, UART TX is working! **\r\n");
     printf("** Now test UART RX by selecting a menu option... **\r\n");
+
+    // MPU + DCACHE 상태 확인
+    printf("\r\n========================================\r\n");
+    printf("  MPU + DCACHE Test (Phase 3)\r\n");
+    printf("========================================\r\n");
+
+    // MPU 상태
+    if (MPU->CTRL & MPU_CTRL_ENABLE_Msk) {
+        printf("[MPU] ✓ ENABLED\r\n");
+        printf("  Region 0: 0x2003C000 ~ 0x20043FFF (32KB)\r\n");
+        printf("  Attributes: Non-cacheable (for DMA buffers)\r\n");
+    } else {
+        printf("[MPU] ✗ DISABLED\r\n");
+    }
+
+    // DCACHE 상태
+    if (DCACHE1->CR & DCACHE_CR_EN) {
+        printf("[DCACHE] ✓ ENABLED\r\n");
+    } else {
+        printf("[DCACHE] ✗ DISABLED\r\n");
+    }
+
+    // DMA 버퍼 주소 출력
+    printf("\r\n[DMA Buffer Addresses]\r\n");
+    printf("  dac1_buffer_a:        0x%08lX\r\n", (uint32_t)dac1_buffer_a);
+    printf("  dac1_buffer_b:        0x%08lX\r\n", (uint32_t)dac1_buffer_b);
+    printf("  dac2_buffer_a:        0x%08lX\r\n", (uint32_t)dac2_buffer_a);
+    printf("  dac2_buffer_b:        0x%08lX\r\n", (uint32_t)dac2_buffer_b);
+    printf("  g_rx_cmd_packet:      0x%08lX\r\n", spi_handler_get_rx_buffer_addr());
+    printf("  g_uart3_tx_dma_buf:   0x%08lX\r\n", UART3_Get_TX_Buffer_Addr());
+
+    // MPU 영역 확인
+    printf("\r\n[Verification]\r\n");
+    if ((uint32_t)dac1_buffer_a >= 0x2003C000 &&
+        (uint32_t)dac1_buffer_a < 0x20044000 &&
+        spi_handler_get_rx_buffer_addr() >= 0x2003C000 &&
+        spi_handler_get_rx_buffer_addr() < 0x20044000) {
+        printf("  ✓ All DMA buffers in MPU non-cacheable region\r\n");
+    } else {
+        printf("  ✗ ERROR: Buffers NOT in MPU region!\r\n");
+    }
+
+    printf("========================================\r\n\r\n");
 }
 
 void run_proc(void)

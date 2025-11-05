@@ -44,8 +44,8 @@ _Min_Stack_Size = 0x2000; /* required amount of stack */
 /* Memories definition */
 MEMORY
 {
-  RAM    (xrw)    : ORIGIN = 0x20000000,   LENGTH = 256K    /* Cacheable RAM */
-  RAM_DMA (xrw)   : ORIGIN = 0x20040000,   LENGTH = 16K     /* Non-cacheable RAM for DMA */
+  RAM    (xrw)    : ORIGIN = 0x20000000,   LENGTH = 240K    /* Cacheable RAM */
+  RAM_DMA (xrw)   : ORIGIN = 0x2003C000,   LENGTH = 32K     /* Non-cacheable RAM for DMA (increased for audio buffers) */
   FLASH    (rx)    : ORIGIN = 0x08000000,   LENGTH = 256K
 }
 

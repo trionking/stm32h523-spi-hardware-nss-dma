@@ -134,6 +134,12 @@ void spi_handler_cs_rising(void);
  */
 uint8_t spi_handler_get_last_packet(uint8_t *buffer);
 
+/**
+ * @brief Get address of SPI RX DMA buffer (for debugging)
+ * @return Address of g_rx_cmd_packet
+ */
+uint32_t spi_handler_get_rx_buffer_addr(void);
+
 #ifdef __cplusplus
 }
 #endif

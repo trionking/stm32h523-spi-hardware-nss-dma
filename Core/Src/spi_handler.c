@@ -28,9 +28,14 @@ static SPI_RxState_t g_rx_state = SPI_STATE_WAIT_HEADER;
 
 // Reception buffers - must be 32-byte aligned for DMA!
 static uint8_t g_rx_header;
-__attribute__((aligned(32))) static CommandPacket_t g_rx_cmd_packet;
+
+// DMA RX buffer - placed in non-cacheable RAM for DCACHE compatibility
+__attribute__((section(".dma_buffer"))) __attribute__((aligned(32)))
+static CommandPacket_t g_rx_cmd_packet;
 
 // Data packet buffer (aligned for DMA, max size)
+// NOTE: Not in .dma_buffer section (too large, ~4KB)
+//       Data packets (0xDA) not implemented yet - will add cache handling when needed
 __attribute__((aligned(32)))
 static uint8_t g_rx_data_buffer[5 + (MAX_SAMPLES_PER_PACKET * 2)];  // 4101 bytes max
 
@@ -47,8 +52,9 @@ static volatile uint32_t g_dma_rx_complete_count = 0;
 static volatile uint8_t g_last_rx_packet[5] = {0};
 static volatile uint8_t g_last_rx_valid = 0;
 
-// Dummy TX buffer for full-duplex DMA (slave doesn't care about TX data)
-__attribute__((aligned(32))) static uint8_t g_dummy_tx[5] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+// Dummy TX buffer for full-duplex DMA (slave doesn't care about TX data) - non-cacheable RAM
+__attribute__((section(".dma_buffer"))) __attribute__((aligned(32)))
+static uint8_t g_dummy_tx[5] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 
 /* ============================================================================ */
 /* External DAC/TIM handles (from main.c) */
@@ -451,4 +457,12 @@ uint8_t spi_handler_get_last_packet(uint8_t *buffer)
         return 1;
     }
     return 0;
+}
+
+/**
+ * @brief Get address of SPI RX DMA buffer (for debugging)
+ */
+uint32_t spi_handler_get_rx_buffer_addr(void)
+{
+    return (uint32_t)&g_rx_cmd_packet;
 }
