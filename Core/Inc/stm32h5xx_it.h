@@ -55,18 +55,26 @@ void SVC_Handler(void);
 void DebugMon_Handler(void);
 void PendSV_Handler(void);
 void SysTick_Handler(void);
+void EXTI15_IRQHandler(void);
 void GPDMA1_Channel0_IRQHandler(void);
 void GPDMA1_Channel1_IRQHandler(void);
 void GPDMA1_Channel2_IRQHandler(void);
 void GPDMA1_Channel3_IRQHandler(void);
 void GPDMA1_Channel4_IRQHandler(void);
 void GPDMA1_Channel5_IRQHandler(void);
-void DAC1_IRQHandler(void);
 void TIM7_IRQHandler(void);
 void SPI1_IRQHandler(void);
 void USART1_IRQHandler(void);
 void USART3_IRQHandler(void);
+void GPDMA2_Channel0_IRQHandler(void);
+void GPDMA2_Channel1_IRQHandler(void);
 /* USER CODE BEGIN EFP */
+
+// Debug: DAC DMA interrupt counters
+extern volatile uint32_t g_dac1_half_cplt_count;
+extern volatile uint32_t g_dac1_cplt_count;
+extern volatile uint32_t g_dac2_half_cplt_count;
+extern volatile uint32_t g_dac2_cplt_count;
 
 /* USER CODE END EFP */
 

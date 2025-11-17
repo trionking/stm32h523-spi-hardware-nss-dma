@@ -13,9 +13,9 @@
   * 3. Process command or data
   * 4. Return to step 1
   *
-  * RDY Pin Control:
-  * - HIGH: Ready to receive
-  * - LOW: Processing packet
+  * RDY Pin Control (Active Low):
+  * - LOW: Ready to receive
+  * - HIGH: Processing packet (Busy)
   *
   ******************************************************************************
   */
@@ -55,6 +55,13 @@ typedef struct {
     uint32_t invalid_id_count;      // Packets for wrong slave ID
     uint32_t overflow_count;        // Buffer overflow errors
     uint32_t dma_rx_complete_count; // DMA RX complete callbacks
+    uint32_t cs_falling_count;      // CS falling edge count
+    uint32_t cs_rising_count;       // CS rising edge count
+    uint32_t cmd_packet_count;      // Command packets received
+    uint32_t data_packet_count;     // Data packets received
+    uint32_t last_received_bytes;   // Last packet size
+    uint32_t dma_start_fail_count;  // DMA start failed count
+    uint32_t last_spi_state;        // Last SPI state when DMA failed
 } SPI_ErrorStats_t;
 
 /* ============================================================================ */
@@ -108,10 +115,26 @@ void spi_handler_get_errors(SPI_ErrorStats_t *stats);
 void spi_handler_reset_errors(void);
 
 /**
- * @brief Set RDY pin state
- * @param ready 1=HIGH (ready), 0=LOW (busy)
+ * @brief Set RDY pin state (Active Low)
+ * @param ready 1=LOW (ready), 0=HIGH (busy)
  */
 void spi_handler_set_ready(uint8_t ready);
+
+/**
+ * @brief Update RDY pin based on both channels' buffer status
+ * @note RDY=LOW (ready) if both channels have space in fill_buffer
+ *       RDY=HIGH (busy) if either channel's fill_buffer is full
+ * @note Call this after buffer operations (data fill, buffer swap)
+ */
+void spi_handler_update_rdy(void);
+
+/**
+ * @brief Initialize NSS (PA15) EXTI for rising edge detection
+ * @note Configures EXTI15 to detect NSS rising edge (packet end)
+ * @note This works alongside Hardware NSS mode to detect variable-length packets
+ * @note Call this after spi_handler_init() but before spi_handler_start()
+ */
+void spi_handler_init_nss_exti(void);
 
 /**
  * @brief CS pin falling edge handler

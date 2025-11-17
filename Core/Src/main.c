@@ -43,16 +43,20 @@
 /* Private variables ---------------------------------------------------------*/
 
 DAC_HandleTypeDef hdac1;
+DMA_NodeTypeDef Node_GPDMA2_Channel1;
+DMA_QListTypeDef List_GPDMA2_Channel1;
+DMA_HandleTypeDef handle_GPDMA2_Channel1;
+DMA_NodeTypeDef Node_GPDMA2_Channel0;
+DMA_QListTypeDef List_GPDMA2_Channel0;
+DMA_HandleTypeDef handle_GPDMA2_Channel0;
 
 DCACHE_HandleTypeDef hdcache1;
-
-DMA_HandleTypeDef handle_GPDMA1_Channel7;
-DMA_HandleTypeDef handle_GPDMA1_Channel6;
 
 SPI_HandleTypeDef hspi1;
 DMA_HandleTypeDef handle_GPDMA1_Channel5;
 DMA_HandleTypeDef handle_GPDMA1_Channel4;
 
+TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim7;
 
 UART_HandleTypeDef huart1;
@@ -75,6 +79,7 @@ void SystemClock_Config(void);
 static void MPU_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_GPDMA1_Init(void);
+static void MX_GPDMA2_Init(void);
 static void MX_DAC1_Init(void);
 static void MX_DCACHE1_Init(void);
 static void MX_ICACHE_Init(void);
@@ -82,6 +87,7 @@ static void MX_SPI1_Init(void);
 static void MX_USART3_UART_Init(void);
 static void MX_USART1_UART_Init(void);
 static void MX_TIM7_Init(void);
+static void MX_TIM1_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -124,6 +130,7 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_GPDMA1_Init();
+  MX_GPDMA2_Init();
   MX_DAC1_Init();
   MX_DCACHE1_Init();
   MX_ICACHE_Init();
@@ -131,6 +138,7 @@ int main(void)
   MX_USART3_UART_Init();
   MX_USART1_UART_Init();
   MX_TIM7_Init();
+  MX_TIM1_Init();
   /* USER CODE BEGIN 2 */
   run_proc();
 
@@ -221,6 +229,7 @@ static void MX_DAC1_Init(void)
   DAC_ChannelConfTypeDef sConfig = {0};
 
   /* USER CODE BEGIN DAC1_Init 1 */
+  sConfig.DAC_OutputBuffer = DAC_OUTPUTBUFFER_ENABLE;
 
   /* USER CODE END DAC1_Init 1 */
 
@@ -234,11 +243,12 @@ static void MX_DAC1_Init(void)
 
   /** DAC channel OUT1 config
   */
-  sConfig.DAC_HighFrequency = DAC_HIGH_FREQUENCY_INTERFACE_MODE_DISABLE;
+  sConfig.DAC_HighFrequency = DAC_HIGH_FREQUENCY_INTERFACE_MODE_AUTOMATIC;
   sConfig.DAC_DMADoubleDataMode = DISABLE;
   sConfig.DAC_SignedFormat = DISABLE;
   sConfig.DAC_SampleAndHold = DAC_SAMPLEANDHOLD_DISABLE;
-  sConfig.DAC_Trigger = DAC_TRIGGER_T7_TRGO;
+  sConfig.DAC_Trigger = DAC_TRIGGER_T1_TRGO;
+  sConfig.DAC_OutputBuffer = DAC_OUTPUTBUFFER_ENABLE;
   sConfig.DAC_ConnectOnChipPeripheral = DAC_CHIPCONNECT_EXTERNAL;
   sConfig.DAC_UserTrimming = DAC_TRIMMING_FACTORY;
   if (HAL_DAC_ConfigChannel(&hdac1, &sConfig, DAC_CHANNEL_1) != HAL_OK)
@@ -248,12 +258,31 @@ static void MX_DAC1_Init(void)
 
   /** DAC channel OUT2 config
   */
+  sConfig.DAC_HighFrequency = DAC_HIGH_FREQUENCY_INTERFACE_MODE_AUTOMATIC;
+  sConfig.DAC_DMADoubleDataMode = DISABLE;
+  sConfig.DAC_SignedFormat = DISABLE;
+  sConfig.DAC_SampleAndHold = DAC_SAMPLEANDHOLD_DISABLE;
+  // DAC CH2 uses TIM7 TRGO trigger
+  sConfig.DAC_Trigger = DAC_TRIGGER_T7_TRGO;  // TSEL=6 → TIM7 TRGO
   sConfig.DAC_OutputBuffer = DAC_OUTPUTBUFFER_ENABLE;
+  sConfig.DAC_ConnectOnChipPeripheral = DAC_CHIPCONNECT_EXTERNAL;
+  sConfig.DAC_UserTrimming = DAC_TRIMMING_FACTORY;
   if (HAL_DAC_ConfigChannel(&hdac1, &sConfig, DAC_CHANNEL_2) != HAL_OK)
   {
     Error_Handler();
   }
+
+  /* USER CODE BEGIN DAC1_Init 1.5 */
+  // INDEPENDENT DAC MODE: Each channel has its own DMA and trigger
+  // DAC1: TEN1=1, DMAEN1=1, TSEL1=0 (TIM1_TRGO)
+  // DAC2: TEN2=1, DMAEN2=1, TSEL2=6 (TIM7_TRGO)
+  // Both channels operate independently with their own sample rates
+
+  printf("[DAC_INIT] INDEPENDENT MODE: CH1=TIM1, CH2=TIM7, CR=0x%08lX\r\n", DAC1->CR);
+  /* USER CODE END DAC1_Init 1.5 */
   /* USER CODE BEGIN DAC1_Init 2 */
+
+  // NOTE: Calibration is performed in user_def.c init_proc() after UART init
 
   /* USER CODE END DAC1_Init 2 */
 
@@ -318,37 +347,39 @@ static void MX_GPDMA1_Init(void)
   /* USER CODE BEGIN GPDMA1_Init 1 */
 
   /* USER CODE END GPDMA1_Init 1 */
-  handle_GPDMA1_Channel7.Instance = GPDMA1_Channel7;
-  handle_GPDMA1_Channel7.InitLinkedList.Priority = DMA_LOW_PRIORITY_HIGH_WEIGHT;
-  handle_GPDMA1_Channel7.InitLinkedList.LinkStepMode = DMA_LSM_FULL_EXECUTION;
-  handle_GPDMA1_Channel7.InitLinkedList.LinkAllocatedPort = DMA_LINK_ALLOCATED_PORT0;
-  handle_GPDMA1_Channel7.InitLinkedList.TransferEventMode = DMA_TCEM_LAST_LL_ITEM_TRANSFER;
-  handle_GPDMA1_Channel7.InitLinkedList.LinkedListMode = DMA_LINKEDLIST_CIRCULAR;
-  if (HAL_DMAEx_List_Init(&handle_GPDMA1_Channel7) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  if (HAL_DMA_ConfigChannelAttributes(&handle_GPDMA1_Channel7, DMA_CHANNEL_NPRIV) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  handle_GPDMA1_Channel6.Instance = GPDMA1_Channel6;
-  handle_GPDMA1_Channel6.InitLinkedList.Priority = DMA_LOW_PRIORITY_HIGH_WEIGHT;
-  handle_GPDMA1_Channel6.InitLinkedList.LinkStepMode = DMA_LSM_FULL_EXECUTION;
-  handle_GPDMA1_Channel6.InitLinkedList.LinkAllocatedPort = DMA_LINK_ALLOCATED_PORT0;
-  handle_GPDMA1_Channel6.InitLinkedList.TransferEventMode = DMA_TCEM_LAST_LL_ITEM_TRANSFER;
-  handle_GPDMA1_Channel6.InitLinkedList.LinkedListMode = DMA_LINKEDLIST_CIRCULAR;
-  if (HAL_DMAEx_List_Init(&handle_GPDMA1_Channel6) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  if (HAL_DMA_ConfigChannelAttributes(&handle_GPDMA1_Channel6, DMA_CHANNEL_NPRIV) != HAL_OK)
-  {
-    Error_Handler();
-  }
   /* USER CODE BEGIN GPDMA1_Init 2 */
 
   /* USER CODE END GPDMA1_Init 2 */
+
+}
+
+/**
+  * @brief GPDMA2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_GPDMA2_Init(void)
+{
+
+  /* USER CODE BEGIN GPDMA2_Init 0 */
+
+  /* USER CODE END GPDMA2_Init 0 */
+
+  /* Peripheral clock enable */
+  __HAL_RCC_GPDMA2_CLK_ENABLE();
+
+  /* GPDMA2 interrupt Init */
+    HAL_NVIC_SetPriority(GPDMA2_Channel0_IRQn, 0, 0);
+    HAL_NVIC_EnableIRQ(GPDMA2_Channel0_IRQn);
+    HAL_NVIC_SetPriority(GPDMA2_Channel1_IRQn, 0, 0);
+    HAL_NVIC_EnableIRQ(GPDMA2_Channel1_IRQn);
+
+  /* USER CODE BEGIN GPDMA2_Init 1 */
+
+  /* USER CODE END GPDMA2_Init 1 */
+  /* USER CODE BEGIN GPDMA2_Init 2 */
+
+  /* USER CODE END GPDMA2_Init 2 */
 
 }
 
@@ -402,7 +433,7 @@ static void MX_SPI1_Init(void)
   hspi1.Init.DataSize = SPI_DATASIZE_8BIT;
   hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
-  hspi1.Init.NSS = SPI_NSS_HARD_INPUT;
+  hspi1.Init.NSS = SPI_NSS_SOFT;
   hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
@@ -428,6 +459,53 @@ static void MX_SPI1_Init(void)
 }
 
 /**
+  * @brief TIM1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM1_Init(void)
+{
+
+  /* USER CODE BEGIN TIM1_Init 0 */
+
+  /* USER CODE END TIM1_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM1_Init 1 */
+
+  /* USER CODE END TIM1_Init 1 */
+  htim1.Instance = TIM1;
+  htim1.Init.Prescaler = 0;
+  htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim1.Init.Period = 7811;
+  htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim1.Init.RepetitionCounter = 0;
+  htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim1, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_UPDATE;
+  sMasterConfig.MasterOutputTrigger2 = TIM_TRGO2_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim1, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM1_Init 2 */
+
+  /* USER CODE END TIM1_Init 2 */
+
+}
+
+/**
   * @brief TIM7 Initialization Function
   * @param None
   * @retval None
@@ -448,7 +526,7 @@ static void MX_TIM7_Init(void)
   htim7.Init.Prescaler = 0;
   htim7.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim7.Init.Period = 7811;
-  htim7.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
+  htim7.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim7) != HAL_OK)
   {
     Error_Handler();
@@ -580,6 +658,9 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, OT_LD_REV_Pin|OT_LD_SYS_Pin, GPIO_PIN_RESET);
 
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(OT_nRDY_GPIO_Port, OT_nRDY_Pin, GPIO_PIN_SET);
+
   /*Configure GPIO pins : OT_LD_REV_Pin OT_LD_SYS_Pin */
   GPIO_InitStruct.Pin = OT_LD_REV_Pin|OT_LD_SYS_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
@@ -587,11 +668,22 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : IN_RDY_Pin */
-  GPIO_InitStruct.Pin = IN_RDY_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  /*Configure GPIO pin : OT_nRDY_Pin */
+  GPIO_InitStruct.Pin = OT_nRDY_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(IN_RDY_GPIO_Port, &GPIO_InitStruct);
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(OT_nRDY_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : SPI1_ECTI_NSS_Pin */
+  GPIO_InitStruct.Pin = SPI1_ECTI_NSS_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(SPI1_ECTI_NSS_GPIO_Port, &GPIO_InitStruct);
+
+  /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI15_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI15_IRQn);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
 
@@ -627,7 +719,7 @@ void MPU_Config(void)
   MPU_InitStruct.AttributesIndex = MPU_ATTRIBUTES_NUMBER0;
   MPU_InitStruct.AccessPermission = MPU_REGION_ALL_RW;
   MPU_InitStruct.DisableExec = MPU_INSTRUCTION_ACCESS_DISABLE;
-  MPU_InitStruct.IsShareable = MPU_ACCESS_NOT_SHAREABLE;
+  MPU_InitStruct.IsShareable = MPU_ACCESS_INNER_SHAREABLE;
 
   HAL_MPU_ConfigRegion(&MPU_InitStruct);
 

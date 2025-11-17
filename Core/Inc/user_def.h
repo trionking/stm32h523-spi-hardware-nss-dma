@@ -7,6 +7,7 @@ void test_dac_quick(void);           // Test 3: DAC quick test (5 sec)
 void test_uart_loopback(void);       // Test 4: UART loopback test (HW test)
 void test_uart_echo(void);           // Test 5: UART echo test (RX test)
 void test_rdy_pin(void);             // Test 6: RDY pin toggle test
+void test_dac_dma_sine(void);        // Test 7: DAC DMA sine wave (buffer fill)
 
 // Legacy test functions
 void test_gpio(void);

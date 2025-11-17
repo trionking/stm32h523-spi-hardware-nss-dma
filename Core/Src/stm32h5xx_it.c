@@ -65,10 +65,24 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
+// Debug: EXTI15 interrupt counter
+static volatile uint32_t g_exti15_irq_count = 0;
+
+// Debug: DAC DMA interrupt counters (exported for STATUS command)
+volatile uint32_t g_dac1_half_cplt_count = 0;
+volatile uint32_t g_dac1_cplt_count = 0;
+volatile uint32_t g_dac2_half_cplt_count = 0;
+volatile uint32_t g_dac2_cplt_count = 0;
+
 /* USER CODE END 0 */
 
 /* External variables --------------------------------------------------------*/
-extern DAC_HandleTypeDef hdac1;
+extern DMA_NodeTypeDef Node_GPDMA2_Channel1;
+extern DMA_QListTypeDef List_GPDMA2_Channel1;
+extern DMA_HandleTypeDef handle_GPDMA2_Channel1;
+extern DMA_NodeTypeDef Node_GPDMA2_Channel0;
+extern DMA_QListTypeDef List_GPDMA2_Channel0;
+extern DMA_HandleTypeDef handle_GPDMA2_Channel0;
 extern DMA_HandleTypeDef handle_GPDMA1_Channel5;
 extern DMA_HandleTypeDef handle_GPDMA1_Channel4;
 extern SPI_HandleTypeDef hspi1;
@@ -226,6 +240,35 @@ void SysTick_Handler(void)
 /******************************************************************************/
 
 /**
+  * @brief This function handles EXTI Line15 interrupt.
+  */
+void EXTI15_IRQHandler(void)
+{
+  /* USER CODE BEGIN EXTI15_IRQn 0 */
+
+  // STM32H5: EXTI pending flag manual handling
+  uint32_t falling_pending = EXTI->FPR1 & (1U << 15);
+  uint32_t rising_pending = EXTI->RPR1 & (1U << 15);
+
+  // Clear ALL pending flags FIRST
+  if (falling_pending) EXTI->FPR1 = (1U << 15);
+  if (rising_pending) EXTI->RPR1 = (1U << 15);
+
+  // Only call callback if there was actually a pending flag
+  if (falling_pending || rising_pending)
+  {
+      HAL_GPIO_EXTI_Callback(SPI1_ECTI_NSS_Pin);
+  }
+  return; // Skip HAL_GPIO_EXTI_IRQHandler()
+
+  /* USER CODE END EXTI15_IRQn 0 */
+  HAL_GPIO_EXTI_IRQHandler(SPI1_ECTI_NSS_Pin);
+  /* USER CODE BEGIN EXTI15_IRQn 1 */
+
+  /* USER CODE END EXTI15_IRQn 1 */
+}
+
+/**
   * @brief This function handles GPDMA1 Channel 0 global interrupt.
   */
 void GPDMA1_Channel0_IRQHandler(void)
@@ -310,20 +353,6 @@ void GPDMA1_Channel5_IRQHandler(void)
 }
 
 /**
-  * @brief This function handles DAC1 interrupt.
-  */
-void DAC1_IRQHandler(void)
-{
-  /* USER CODE BEGIN DAC1_IRQn 0 */
-
-  /* USER CODE END DAC1_IRQn 0 */
-  HAL_DAC_IRQHandler(&hdac1);
-  /* USER CODE BEGIN DAC1_IRQn 1 */
-
-  /* USER CODE END DAC1_IRQn 1 */
-}
-
-/**
   * @brief This function handles TIM7 global interrupt.
   */
 void TIM7_IRQHandler(void)
@@ -389,6 +418,34 @@ void USART3_IRQHandler(void)
   /* USER CODE END USART3_IRQn 1 */
 }
 
+/**
+  * @brief This function handles GPDMA2 Channel 0 global interrupt.
+  */
+void GPDMA2_Channel0_IRQHandler(void)
+{
+  /* USER CODE BEGIN GPDMA2_Channel0_IRQn 0 */
+
+  /* USER CODE END GPDMA2_Channel0_IRQn 0 */
+  HAL_DMA_IRQHandler(&handle_GPDMA2_Channel0);
+  /* USER CODE BEGIN GPDMA2_Channel0_IRQn 1 */
+
+  /* USER CODE END GPDMA2_Channel0_IRQn 1 */
+}
+
+/**
+  * @brief This function handles GPDMA2 Channel 1 global interrupt.
+  */
+void GPDMA2_Channel1_IRQHandler(void)
+{
+  /* USER CODE BEGIN GPDMA2_Channel1_IRQn 0 */
+
+  /* USER CODE END GPDMA2_Channel1_IRQn 0 */
+  HAL_DMA_IRQHandler(&handle_GPDMA2_Channel1);
+  /* USER CODE BEGIN GPDMA2_Channel1_IRQn 1 */
+
+  /* USER CODE END GPDMA2_Channel1_IRQn 1 */
+}
+
 /* USER CODE BEGIN 1 */
 
 /* ============================================================================ */
@@ -444,6 +501,9 @@ void HAL_DAC_ConvHalfCpltCallbackCh1(DAC_HandleTypeDef *hdac)
 {
     // First half (0~1023) of active buffer has been output
     // Could update first half here if needed (not used in circular buffer mode)
+
+    // DEBUG: Count half-complete events
+    g_dac1_half_cplt_count++;
 }
 
 /**
@@ -453,6 +513,9 @@ void HAL_DAC_ConvHalfCpltCallbackCh1(DAC_HandleTypeDef *hdac)
   */
 void HAL_DAC_ConvCpltCallbackCh1(DAC_HandleTypeDef *hdac)
 {
+    // DEBUG: Count complete events
+    g_dac1_cplt_count++;
+
     // Second half (1024~2047) of active buffer has been output
     // Now we need to swap buffers if fill buffer is ready
 
@@ -469,8 +532,11 @@ void HAL_DAC_ConvCpltCallbackCh1(DAC_HandleTypeDef *hdac)
             HAL_DAC_Stop_DMA(hdac, DAC_CHANNEL_1);
             HAL_DAC_Start_DMA(hdac, DAC_CHANNEL_1,
                             (uint32_t*)g_dac1_channel.active_buffer,
-                            AUDIO_BUFFER_SIZE,
+                            AUDIO_BUFFER_SIZE,  // Number of samples (source items)
                             DAC_ALIGN_12B_R);
+
+            // Update RDY pin (fill_index reset to 0, now ready for more data)
+            spi_handler_update_rdy();
         }
     }
     else
@@ -484,17 +550,19 @@ void HAL_DAC_ConvCpltCallbackCh1(DAC_HandleTypeDef *hdac)
 /**
   * @brief DAC CH2 DMA Half Transfer Complete Callback
   */
-void HAL_DAC_ConvHalfCpltCallbackCh2(DAC_HandleTypeDef *hdac)
+void HAL_DACEx_ConvHalfCpltCallbackCh2(DAC_HandleTypeDef *hdac)
 {
     // First half of CH2 buffer output
+    g_dac2_half_cplt_count++;
 }
 
 /**
   * @brief DAC CH2 DMA Transfer Complete Callback
   */
-void HAL_DAC_ConvCpltCallbackCh2(DAC_HandleTypeDef *hdac)
+void HAL_DACEx_ConvCpltCallbackCh2(DAC_HandleTypeDef *hdac)
 {
     // Second half of CH2 buffer output - swap buffers
+    g_dac2_cplt_count++;
 
     if (g_dac2_channel.fill_index >= AUDIO_BUFFER_SIZE)
     {
@@ -508,8 +576,11 @@ void HAL_DAC_ConvCpltCallbackCh2(DAC_HandleTypeDef *hdac)
             HAL_DAC_Stop_DMA(hdac, DAC_CHANNEL_2);
             HAL_DAC_Start_DMA(hdac, DAC_CHANNEL_2,
                             (uint32_t*)g_dac2_channel.active_buffer,
-                            AUDIO_BUFFER_SIZE,
+                            AUDIO_BUFFER_SIZE,  // Number of samples (source items)
                             DAC_ALIGN_12B_R);
+
+            // Update RDY pin (fill_index reset to 0, now ready for more data)
+            spi_handler_update_rdy();
         }
     }
     else
@@ -539,7 +610,7 @@ void HAL_DAC_ErrorCallbackCh1(DAC_HandleTypeDef *hdac)
     printf("=====================================\r\n");
 }
 
-void HAL_DAC_ErrorCallbackCh2(DAC_HandleTypeDef *hdac)
+void HAL_DACEx_ErrorCallbackCh2(DAC_HandleTypeDef *hdac)
 {
     // DAC CH2 error occurred
     g_dac2_channel.underrun = 1;
@@ -547,16 +618,30 @@ void HAL_DAC_ErrorCallbackCh2(DAC_HandleTypeDef *hdac)
 
 /**
   * @brief GPIO EXTI Callback
-  * @note Hardware NSS mode is used for SPI (no EXTI needed for CS detection)
-  *       PA15 is configured as SPI1_NSS (hardware controlled)
-  *       SPI DMA runs in continuous mode, NSS LOW enables data transfer
+  * @note PA15 (CS) edge detection for variable-length packet reception
+  *       Falling edge: Start DMA reception
+  *       Rising edge: Stop DMA and process received data
   */
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
-    // Hardware NSS mode: EXTI not used for SPI CS detection
-    // Other GPIO EXTI callbacks can be handled here if needed
+    if (GPIO_Pin == GPIO_PIN_15)
+    {
+        // Read PA15 pin state to determine edge direction
+        GPIO_PinState pin_state = HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_15);
 
-    (void)GPIO_Pin;  // Suppress unused warning
+        if (pin_state == GPIO_PIN_RESET)  // PA15 = LOW (falling edge)
+        {
+            // CS LOW = Master starts transmission
+            spi_handler_cs_falling();
+        }
+        else  // PA15 = HIGH (rising edge)
+        {
+            // CS HIGH = Master finished transmission
+            spi_handler_cs_rising();
+        }
+    }
+
+    // Other GPIO EXTI callbacks can be handled here if needed
 }
 
 /* USER CODE END 1 */

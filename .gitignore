@@ -38,3 +38,9 @@ Thumbs.db
 *.bak
 *.swp
 *.swo
+
+# Documentation files
+*.pdf
+
+# Large documentation folders
+.doc2/

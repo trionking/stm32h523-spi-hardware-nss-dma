@@ -16,6 +16,7 @@
 #include "audio_channel.h"
 #include "spi_handler.h"
 #include "user_com.h"
+#include "stm32h5xx_it.h"  // For DAC DMA debug counters
 
 extern UART_HandleTypeDef huart1;
 extern UART_HandleTypeDef huart3;
@@ -306,10 +307,38 @@ void test_led_blink(void)
 // Test 2: 사이렌 소리 테스트
 void test_dac_sine_wave(void)
 {
+    printf("\r\n[ENTRY] test_dac_sine_wave() called\r\n");
+
     printf("\r\n=== Siren Sound Test ===\r\n");
     printf("DAC1_CH1 (PA4): Siren sound (500Hz~2kHz sweep)\r\n");
     printf("DAC1_CH2 (PA5): Siren sound (inverted phase)\r\n");
     printf("Press ESC or 'q' to exit\r\n\r\n");
+
+    printf("[DIAG] About to read DAC registers...\r\n");
+
+    // DIAGNOSTIC: Check DAC status before starting
+    printf("[DIAG] DAC CR before start: 0x%08lX\r\n", DAC1->CR);
+    printf("[DIAG] DAC SR before start: 0x%08lX\r\n", DAC1->SR);
+    printf("[DIAG] DAC MCR: 0x%08lX\r\n", DAC1->MCR);
+
+    // FIX: Reconfigure DAC to NO TRIGGER mode for manual control
+    printf("[FIX] Reconfiguring DAC to NO TRIGGER mode...\r\n");
+    DAC_ChannelConfTypeDef sConfig = {0};
+    sConfig.DAC_HighFrequency = DAC_HIGH_FREQUENCY_INTERFACE_MODE_AUTOMATIC;
+    sConfig.DAC_Trigger = DAC_TRIGGER_NONE;  // No trigger - manual control
+    sConfig.DAC_OutputBuffer = DAC_OUTPUTBUFFER_ENABLE;
+    sConfig.DAC_ConnectOnChipPeripheral = DAC_CHIPCONNECT_EXTERNAL;
+    sConfig.DAC_UserTrimming = DAC_TRIMMING_FACTORY;
+
+    if (HAL_DAC_ConfigChannel(&hdac1, &sConfig, DAC_CHANNEL_1) != HAL_OK) {
+        printf("[ERROR] DAC CH1 config failed!\r\n");
+        return;
+    }
+    if (HAL_DAC_ConfigChannel(&hdac1, &sConfig, DAC_CHANNEL_2) != HAL_OK) {
+        printf("[ERROR] DAC CH2 config failed!\r\n");
+        return;
+    }
+    printf("[FIX] DAC reconfigured successfully\r\n");
 
     // 정현파 테이블 생성 (256 샘플)
     uint16_t sine_256[256];
@@ -319,8 +348,12 @@ void test_dac_sine_wave(void)
     }
 
     // DAC 시작
-    HAL_DAC_Start(&hdac1, DAC_CHANNEL_1);
-    HAL_DAC_Start(&hdac1, DAC_CHANNEL_2);
+    HAL_StatusTypeDef status1 = HAL_DAC_Start(&hdac1, DAC_CHANNEL_1);
+    HAL_StatusTypeDef status2 = HAL_DAC_Start(&hdac1, DAC_CHANNEL_2);
+
+    printf("[DIAG] HAL_DAC_Start CH1: %d, CH2: %d (0=OK)\r\n", status1, status2);
+    printf("[DIAG] DAC CR after start: 0x%08lX\r\n", DAC1->CR);
+    printf("[DIAG] DAC SR after start: 0x%08lX\r\n", DAC1->SR);
 
     uint32_t tick_start = HAL_GetTick();
     uint32_t sample_count = 0;
@@ -345,6 +378,24 @@ void test_dac_sine_wave(void)
                 printf("\r\n[EXIT] Siren Sound Test stopped by user\r\n");
                 HAL_DAC_Stop(&hdac1, DAC_CHANNEL_1);
                 HAL_DAC_Stop(&hdac1, DAC_CHANNEL_2);
+
+                // RESTORE: Reconfigure DAC back to TIM1 trigger mode for DMA operation
+                printf("[RESTORE] Reconfiguring DAC to TIM1 TRIGGER mode...\r\n");
+                DAC_ChannelConfTypeDef sConfig_restore = {0};
+                sConfig_restore.DAC_HighFrequency = DAC_HIGH_FREQUENCY_INTERFACE_MODE_AUTOMATIC;
+                sConfig_restore.DAC_Trigger = DAC_TRIGGER_T1_TRGO;  // TIM1 trigger
+                sConfig_restore.DAC_OutputBuffer = DAC_OUTPUTBUFFER_ENABLE;
+                sConfig_restore.DAC_ConnectOnChipPeripheral = DAC_CHIPCONNECT_EXTERNAL;
+                sConfig_restore.DAC_UserTrimming = DAC_TRIMMING_FACTORY;
+
+                if (HAL_DAC_ConfigChannel(&hdac1, &sConfig_restore, DAC_CHANNEL_1) != HAL_OK) {
+                    printf("[ERROR] DAC CH1 restore failed!\r\n");
+                }
+                if (HAL_DAC_ConfigChannel(&hdac1, &sConfig_restore, DAC_CHANNEL_2) != HAL_OK) {
+                    printf("[ERROR] DAC CH2 restore failed!\r\n");
+                }
+                printf("[RESTORE] DAC restored to TIM1 trigger mode\r\n");
+
                 return;
             }
         }
@@ -393,7 +444,72 @@ void test_dac_sine_wave(void)
     }
 }
 
-// Test 3: DAC Quick Test (5초 출력)
+// Test 3: DAC DMA Sine Wave Test (버퍼를 사인파로 채우기)
+void test_dac_dma_sine(void)
+{
+    printf("\r\n=== DAC DMA Sine Wave Test (5 seconds) ===\r\n");
+    printf("DAC1 (PA4): 1kHz sine wave\r\n");
+    printf("DAC2 (PA5): 500Hz sine wave\r\n");
+    printf("Playing for 5 seconds...\r\n\r\n");
+
+    // DAC1 버퍼를 1kHz 사인파로 채우기
+    // 샘플레이트: 32kHz, 1kHz = 32 샘플/주기
+    for (int i = 0; i < AUDIO_BUFFER_SIZE; i++)
+    {
+        uint16_t table_index = (i * SINE_TABLE_SIZE / 32) % SINE_TABLE_SIZE;
+        dac1_buffer_a[i] = sine_table[table_index];
+        dac1_buffer_b[i] = sine_table[table_index];
+    }
+
+    // DAC2 버퍼를 500Hz 사인파로 채우기 (다른 주파수)
+    // 500Hz = 64 샘플/주기
+    for (int i = 0; i < AUDIO_BUFFER_SIZE; i++)
+    {
+        uint16_t table_index = (i * SINE_TABLE_SIZE / 64) % SINE_TABLE_SIZE;
+        dac2_buffer_a[i] = sine_table[table_index];
+        dac2_buffer_b[i] = sine_table[table_index];
+    }
+
+    printf("[INIT] Buffers filled with sine waves\r\n");
+
+    // Start TIM1 (DAC trigger, 32kHz)
+    extern TIM_HandleTypeDef htim1;
+    HAL_TIM_Base_Start(&htim1);
+    printf("[INIT] TIM1 started (32kHz trigger)\r\n");
+
+    // Start DAC DMA for both channels
+    HAL_StatusTypeDef status1 = HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1,
+                                                   (uint32_t*)dac1_buffer_a,
+                                                   AUDIO_BUFFER_SIZE,
+                                                   DAC_ALIGN_12B_R);
+
+    HAL_StatusTypeDef status2 = HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_2,
+                                                   (uint32_t*)dac2_buffer_a,
+                                                   AUDIO_BUFFER_SIZE,
+                                                   DAC_ALIGN_12B_R);
+
+    if (status1 == HAL_OK && status2 == HAL_OK)
+    {
+        printf("[PLAY] DAC1 & DAC2 DMA started successfully\r\n");
+        printf("[PLAY] Playing...\r\n");
+
+        // Play for 5 seconds
+        HAL_Delay(5000);
+
+        // Stop DAC DMA
+        HAL_DAC_Stop_DMA(&hdac1, DAC_CHANNEL_1);
+        HAL_DAC_Stop_DMA(&hdac1, DAC_CHANNEL_2);
+
+        printf("\r\n[STOP] Playback stopped after 5 seconds\r\n");
+        printf("Test completed.\r\n");
+    }
+    else
+    {
+        printf("[ERROR] DAC DMA start failed: CH1=%d, CH2=%d\r\n", status1, status2);
+    }
+}
+
+// Test 4: DAC Quick Test (5초 출력)
 void test_dac_quick(void)
 {
     printf("\r\n=== DAC Quick Test (5 seconds) ===\r\n");
@@ -561,14 +677,24 @@ void test_uart_echo(void)
 void test_spi_communication(void)
 {
     printf("\r\n=== SPI Communication Test ===\r\n");
-    printf("Protocol v2.0 - Hardware CS selection\r\n");
-    printf("\r\n");
-    printf("IMPORTANT: Main board must send SPI packets!\r\n");
-    printf("- Refer to SPI_TEST_GUIDE.md for Main board code\r\n");
-    printf("- Main board should call HAL_SPI_Transmit() with test packets\r\n");
-    printf("\r\n");
+    UART3_Process_TX_Queue();  // 즉시 출력
+    HAL_Delay(10);
+
+    printf("Protocol v1.2 - Slave ID removed (CS pin selection)\r\n");
+    printf("Phase 2-2: Data Packet + DAC Output Test\r\n\r\n");
+    UART3_Process_TX_Queue();  // 즉시 출력
+    HAL_Delay(10);
+
+    printf("IMPORTANT: Master must send SPI packets!\r\n");
+    printf("- Refer to SLAVE_DATA_PACKET_TEST_GUIDE_20251107.md\r\n");
+    printf("- Master should send: SPITEST DATA 0\r\n\r\n");
+    UART3_Process_TX_Queue();  // 즉시 출력
+    HAL_Delay(10);
+
     printf("Waiting for SPI packets from Master...\r\n");
     printf("Press ESC or 'q' to exit\r\n\r\n");
+    UART3_Process_TX_Queue();  // 즉시 출력
+    HAL_Delay(10);
 
     // SPI 수신 버퍼
     uint8_t rx_buffer[10];
@@ -576,30 +702,32 @@ void test_spi_communication(void)
     uint32_t cmd_packet_count = 0;
     uint32_t data_packet_count = 0;
     uint32_t error_count = 0;
+    uint32_t timeout_count = 0;
     uint32_t tick_start = HAL_GetTick();
 
-    // RDY 핀 HIGH (준비됨)
-    HAL_GPIO_WritePin(IN_RDY_GPIO_Port, IN_RDY_Pin, GPIO_PIN_SET);
+    // TIM7 시작 (DAC 트리거용, 32kHz)
+    HAL_TIM_Base_Start(&htim7);
+    printf("[INIT] TIM7 started for DAC trigger (32kHz)\r\n");
+    UART3_Process_TX_Queue();
+    HAL_Delay(10);
 
-    printf("SPI monitoring started. RDY pin set HIGH.\r\n\r\n");
+    // RDY 핀 LOW (준비됨, Active Low)
+    HAL_GPIO_WritePin(OT_nRDY_GPIO_Port, OT_nRDY_Pin, GPIO_PIN_RESET);
+    printf("[INIT] RDY pin set LOW (ready)\r\n");
+    UART3_Process_TX_Queue();
+    HAL_Delay(10);
+
+    printf("\r\n[READY] Slave is now ready to receive SPI packets\r\n");
+    printf("[READY] Listening on SPI1...\r\n\r\n");
+    UART3_Process_TX_Queue();
+    HAL_Delay(10);
 
     while(1)
     {
-        // ESC 또는 'q' 키 입력 체크
-        if (Len_queue(&rx_UART3_queue) > 0)
-        {
-            uint8_t key = Dequeue(&rx_UART3_queue);
-            if (key == 0x1B || key == 'q' || key == 'Q')
-            {
-                printf("\r\n[EXIT] SPI Communication Test stopped by user\r\n");
-                printf("Total: %lu packets (%lu cmd, %lu data, %lu errors)\r\n",
-                       packet_count, cmd_packet_count, data_packet_count, error_count);
-                return;
-            }
-        }
+        // SPI 수신에만 집중! (UART 처리는 패킷 수신 후에만)
 
-        // SPI 헤더 1바이트 수신 (블로킹, 타임아웃 100ms)
-        HAL_StatusTypeDef status = HAL_SPI_Receive(&hspi1, rx_buffer, 1, 100);
+        // SPI 헤더 1바이트 수신 (타임아웃 10ms)
+        HAL_StatusTypeDef status = HAL_SPI_Receive(&hspi1, rx_buffer, 1, 10);
 
         if (status == HAL_OK)
         {
@@ -641,12 +769,15 @@ void test_spi_communication(void)
                         default:
                             printf("Unknown command\r\n");
                     }
+
+                    // 명령 패킷 처리 완료, UART 출력
+                    UART3_Process_TX_Queue();
                 }
                 else
                 {
                     error_count++;
                     printf("[ERROR] Received CMD header (0xC0) but body failed (status=%d)\r\n", status);
-                    printf("        This usually means NSS went HIGH during transmission\r\n");
+                    UART3_Process_TX_Queue();
                 }
             }
             // Data Packet (0xDA)
@@ -678,11 +809,15 @@ void test_spi_communication(void)
                         HAL_SPI_Receive(&hspi1, dummy, chunk, 1000);
                         bytes_to_read -= chunk;
                     }
+
+                    // 데이터 패킷 처리 완료, UART 출력
+                    UART3_Process_TX_Queue();
                 }
                 else
                 {
                     error_count++;
                     printf("[ERROR] Failed to receive DATA packet header (status=%d)\r\n", status);
+                    UART3_Process_TX_Queue();
                 }
             }
             // Unknown Header (0xFF는 노이즈이므로 조용히 무시)
@@ -690,6 +825,7 @@ void test_spi_communication(void)
             {
                 error_count++;
                 printf("[ERROR] Unknown header: 0x%02X\r\n", header);
+                UART3_Process_TX_Queue();
             }
 
             // LED 토글 (패킷 수신 시에만)
@@ -703,15 +839,28 @@ void test_spi_communication(void)
             // 타임아웃이 아닌 실제 SPI 에러
             error_count++;
             printf("[ERROR] SPI receive error (status=%d)\r\n", status);
+            UART3_Process_TX_Queue();  // 에러 메시지만 즉시 출력
         }
-        // HAL_TIMEOUT은 조용히 무시 (Master가 전송 안 하는 것이 정상)
+        // HAL_TIMEOUT은 조용히 무시 (정상, Master가 아직 전송 안 함)
 
-        // 5초마다 통계 출력
-        if ((HAL_GetTick() - tick_start) >= 5000)
+        // ESC 키 체크 (10ms마다 한 번만)
+        static uint32_t last_key_check = 0;
+        if ((HAL_GetTick() - last_key_check) >= 10)
         {
-            tick_start = HAL_GetTick();
-            printf("\r\n[STATS] Total=%lu, CMD=%lu, DATA=%lu, Errors=%lu\r\n\r\n",
-                   packet_count, cmd_packet_count, data_packet_count, error_count);
+            last_key_check = HAL_GetTick();
+
+            if (Len_queue(&rx_UART3_queue) > 0)
+            {
+                uint8_t key = Dequeue(&rx_UART3_queue);
+                if (key == 0x1B || key == 'q' || key == 'Q')
+                {
+                    printf("\r\n[EXIT] SPI Test stopped. Total=%lu, CMD=%lu, DATA=%lu\r\n",
+                           packet_count, cmd_packet_count, data_packet_count);
+                    UART3_Process_TX_Queue();
+                    HAL_Delay(100);
+                    return;
+                }
+            }
         }
     }
 }
@@ -726,14 +875,14 @@ void test_rdy_pin(void)
 
     // RDY 핀을 출력으로 재설정 (테스트용)
     GPIO_InitTypeDef GPIO_InitStruct = {0};
-    GPIO_InitStruct.Pin = IN_RDY_Pin;
+    GPIO_InitStruct.Pin = OT_nRDY_Pin;
     GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
-    HAL_GPIO_Init(IN_RDY_GPIO_Port, &GPIO_InitStruct);
+    HAL_GPIO_Init(OT_nRDY_GPIO_Port, &GPIO_InitStruct);
 
     // 초기값 LOW
-    HAL_GPIO_WritePin(IN_RDY_GPIO_Port, IN_RDY_Pin, GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(OT_nRDY_GPIO_Port, OT_nRDY_Pin, GPIO_PIN_RESET);
 
     printf("RDY pin configured as output\r\n");
 
@@ -758,12 +907,12 @@ void test_rdy_pin(void)
             tick_start = HAL_GetTick();
 
             // RDY 핀 토글
-            HAL_GPIO_TogglePin(IN_RDY_GPIO_Port, IN_RDY_Pin);
+            HAL_GPIO_TogglePin(OT_nRDY_GPIO_Port, OT_nRDY_Pin);
             HAL_GPIO_TogglePin(OT_LD_SYS_GPIO_Port, OT_LD_SYS_Pin);
 
             toggle_count++;
 
-            GPIO_PinState rdy_state = HAL_GPIO_ReadPin(IN_RDY_GPIO_Port, IN_RDY_Pin);
+            GPIO_PinState rdy_state = HAL_GPIO_ReadPin(OT_nRDY_GPIO_Port, OT_nRDY_Pin);
 
             if (toggle_count % 10 == 0)
             {
@@ -807,6 +956,9 @@ void run_slave_mode(void)
     // Initialize SPI handler
     spi_handler_init(&hspi1, &g_dac1_channel, &g_dac2_channel);
     printf("[INIT] SPI handler initialized\r\n");
+
+    // Note: EXTI for PA15 (CS pin) is already configured by CubeMX
+    // No need to call spi_handler_init_nss_exti() anymore
 
     // Start SPI reception
     spi_handler_start();
@@ -863,16 +1015,26 @@ void run_slave_mode(void)
             printf("DAC1: %s | Samples: %lu | Swaps: %lu | Underruns: %lu\r\n",
                    g_dac1_channel.is_playing ? "PLAY" : "STOP",
                    dac1_samples, dac1_swaps, dac1_underruns);
+            printf("  DMA IRQ: HalfCplt=%lu | Cplt=%lu\r\n",
+                   g_dac1_half_cplt_count, g_dac1_cplt_count);
             printf("DAC2: %s | Samples: %lu | Swaps: %lu | Underruns: %lu\r\n",
                    g_dac2_channel.is_playing ? "PLAY" : "STOP",
                    dac2_samples, dac2_swaps, dac2_underruns);
-            printf("SPI:  Errors: %lu | Invalid Headers: %lu | Invalid IDs: %lu\r\n",
-                   spi_errors.spi_error_count,
-                   spi_errors.invalid_header_count,
-                   spi_errors.invalid_id_count);
-            printf("      State: 0x%02X | ErrorCode: 0x%08lX | DMA_RX: %lu\r\n",
-                   (unsigned int)hspi1.State, hspi1.ErrorCode,
-                   spi_errors.dma_rx_complete_count);
+            printf("  DMA IRQ: HalfCplt=%lu | Cplt=%lu\r\n",
+                   g_dac2_half_cplt_count, g_dac2_cplt_count);
+            printf("SPI:  CS_Fall: %lu | CS_Rise: %lu\r\n",
+                   spi_errors.cs_falling_count,
+                   spi_errors.cs_rising_count);
+            printf("      CMD: %lu | DATA: %lu | Errors: %lu\r\n",
+                   spi_errors.cmd_packet_count,
+                   spi_errors.data_packet_count,
+                   spi_errors.spi_error_count);
+            printf("      Last RX: %lu bytes | DMA Fail: %lu\r\n",
+                   spi_errors.last_received_bytes,
+                   spi_errors.dma_start_fail_count);
+            printf("      SPI State: 0x%02X | Last Fail State: 0x%02lX\r\n",
+                   (unsigned int)hspi1.State,
+                   spi_errors.last_spi_state);
 
             // Show last received packet
             uint8_t last_pkt[5];
@@ -906,8 +1068,9 @@ void show_test_menu(void)
     printf("3. DAC Quick Test (1kHz, 5 sec)\r\n");
     printf("4. RDY Pin Toggle Test\r\n");
     printf("5. SPI Communication Test\r\n");
+    printf("6. DAC DMA Sine Wave Test (5 sec playback)\r\n");
     printf("----------------------------------------\r\n");
-    printf("Select test (0-5): ");
+    printf("Select test (0-6): ");
 }
 
 void run_test_menu(void)
@@ -932,11 +1095,14 @@ void run_test_menu(void)
         if (rcv_rtn_stat == RCV_LINE)
         {
             // 수신된 명령어 파싱
+            printf("[DEBUG] Raw RX: '%s' (len=%d)\r\n", uart3_stat_ST.rcv_line_buf, strlen((char*)uart3_stat_ST.rcv_line_buf));
             sscanf((char *)uart3_stat_ST.rcv_line_buf, "%s", rcv_cmd);
+            printf("[DEBUG] Parsed: '%s' (len=%d)\r\n", rcv_cmd, strlen(rcv_cmd));
 
             // 빈 명령어 무시
             if (strlen(rcv_cmd) == 0)
             {
+                printf("[DEBUG] Empty command, skipping\r\n");
                 continue;
             }
 
@@ -946,9 +1112,10 @@ void run_test_menu(void)
                 show_test_menu();
                 printf("\r\nReady for commands...\r\n\r\n");
             }
-            // 테스트 명령어 (0-5)
-            else if (strlen(rcv_cmd) == 1 && rcv_cmd[0] >= '0' && rcv_cmd[0] <= '5')
+            // 테스트 명령어 (0-6)
+            else if (strlen(rcv_cmd) == 1 && rcv_cmd[0] >= '0' && rcv_cmd[0] <= '6')
             {
+                printf("[DEBUG] Received command: '%c'\r\n", rcv_cmd[0]);
                 switch(rcv_cmd[0])
                 {
                     case '0':
@@ -979,6 +1146,11 @@ void run_test_menu(void)
                     case '5':
                         printf("[CMD] 5: SPI Communication Test\r\n");
                         test_spi_communication();
+                        break;
+
+                    case '6':
+                        printf("[CMD] 6: DAC DMA Sine Wave Test\r\n");
+                        test_dac_dma_sine();
                         break;
                 }
 
@@ -1092,6 +1264,26 @@ void init_proc(void)
 	init_UART_COM();
     // 사인파 룩업 테이블 초기화 (레거시 테스트용)
     init_sine_table();
+
+    // DAC Calibration (CRITICAL for DMA operation)
+    printf("\r\n[DAC_INIT] Performing calibration (INDEPENDENT MODE)...\r\n");
+
+    // INDEPENDENT MODE: Each channel has its own trigger
+    DAC_ChannelConfTypeDef sConfig = {0};
+    sConfig.DAC_HighFrequency = DAC_HIGH_FREQUENCY_INTERFACE_MODE_AUTOMATIC;
+    sConfig.DAC_OutputBuffer = DAC_OUTPUTBUFFER_ENABLE;
+
+    // DAC CH1: TIM1_TRGO trigger
+    sConfig.DAC_Trigger = DAC_TRIGGER_T1_TRGO;
+    HAL_StatusTypeDef cal1 = HAL_DACEx_SelfCalibrate(&hdac1, &sConfig, DAC_CHANNEL_1);
+
+    // DAC CH2: TIM7_TRGO trigger (different from CH1!)
+    sConfig.DAC_Trigger = DAC_TRIGGER_T7_TRGO;  // TSEL=6 → TIM7 TRGO
+    HAL_StatusTypeDef cal2 = HAL_DACEx_SelfCalibrate(&hdac1, &sConfig, DAC_CHANNEL_2);
+
+    printf("[DAC_INIT] Calibration CH1: %d, CH2: %d (0=OK)\r\n", cal1, cal2);
+    printf("[DAC_INIT] DAC SR: 0x%08lX, CR: 0x%08lX\r\n", DAC1->SR, DAC1->CR);
+    printf("[DAC_INIT] INDEPENDENT MODE: CH1=TIM1, CH2=TIM7\r\n\r\n");
 
     printf("\r\n========================================\r\n");
     printf("  STM32H523 Slave MCU Firmware v1.0\r\n");

@@ -7,10 +7,10 @@
   ******************************************************************************
   * @attention
   *
-  * SPI Protocol Specification v2.0
+  * SPI Protocol Specification v1.2 (2025-11-07)
   * - Command Packet: 5 bytes (0xC0 header) - slave_id removed
   * - Data Packet: 4 bytes header + N*2 bytes samples (max 2048 samples)
-  * - Handshake: RDY pin control
+  * - Handshake: RDY pin control (Active Low)
   * - Hardware CS pin selects slave (no software slave_id needed)
   *
   ******************************************************************************
@@ -44,8 +44,9 @@ extern "C" {
 
 /**
  * @brief Maximum samples per data packet
+ * @note Master sends up to 4100 samples in test mode
  */
-#define MAX_SAMPLES_PER_PACKET  2048
+#define MAX_SAMPLES_PER_PACKET  4100
 
 /* ============================================================================ */
 /* Protocol Constants */

@@ -61,8 +61,11 @@ void Error_Handler(void);
 #define OT_LD_REV_GPIO_Port GPIOB
 #define OT_LD_SYS_Pin GPIO_PIN_13
 #define OT_LD_SYS_GPIO_Port GPIOB
-#define IN_RDY_Pin GPIO_PIN_8
-#define IN_RDY_GPIO_Port GPIOA
+#define OT_nRDY_Pin GPIO_PIN_8
+#define OT_nRDY_GPIO_Port GPIOA
+#define SPI1_ECTI_NSS_Pin GPIO_PIN_15
+#define SPI1_ECTI_NSS_GPIO_Port GPIOA
+#define SPI1_ECTI_NSS_EXTI_IRQn EXTI15_IRQn
 
 /* USER CODE BEGIN Private defines */
 

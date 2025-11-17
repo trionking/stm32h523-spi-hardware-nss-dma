@@ -23,6 +23,18 @@
 /* USER CODE BEGIN Includes */
 #include <stdio.h>
 /* USER CODE END Includes */
+extern DMA_NodeTypeDef Node_GPDMA2_Channel1;
+
+extern DMA_QListTypeDef List_GPDMA2_Channel1;
+
+extern DMA_HandleTypeDef handle_GPDMA2_Channel1;
+
+extern DMA_NodeTypeDef Node_GPDMA2_Channel0;
+
+extern DMA_QListTypeDef List_GPDMA2_Channel0;
+
+extern DMA_HandleTypeDef handle_GPDMA2_Channel0;
+
 extern DMA_HandleTypeDef handle_GPDMA1_Channel5;
 
 extern DMA_HandleTypeDef handle_GPDMA1_Channel4;
@@ -102,6 +114,7 @@ void HAL_MspInit(void)
 void HAL_DAC_MspInit(DAC_HandleTypeDef* hdac)
 {
   GPIO_InitTypeDef GPIO_InitStruct = {0};
+  DMA_NodeConfTypeDef NodeConfig;
   RCC_PeriphCLKInitTypeDef PeriphClkInitStruct = {0};
   if(hdac->Instance==DAC1)
   {
@@ -131,19 +144,125 @@ void HAL_DAC_MspInit(DAC_HandleTypeDef* hdac)
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-    /* DAC1 interrupt Init */
-    HAL_NVIC_SetPriority(DAC1_IRQn, 1, 0);
-    HAL_NVIC_EnableIRQ(DAC1_IRQn);
+    /* DAC1 DMA Init */
+    /* GPDMA2_REQUEST_DAC1_CH2 Init */
+    NodeConfig.NodeType = DMA_GPDMA_LINEAR_NODE;
+    NodeConfig.Init.Request = GPDMA2_REQUEST_DAC1_CH2;
+    NodeConfig.Init.BlkHWRequest = DMA_BREQ_SINGLE_BURST;
+    NodeConfig.Init.Direction = DMA_MEMORY_TO_PERIPH;
+    NodeConfig.Init.SrcInc = DMA_SINC_INCREMENTED;
+    NodeConfig.Init.DestInc = DMA_DINC_FIXED;
+    NodeConfig.Init.SrcDataWidth = DMA_SRC_DATAWIDTH_HALFWORD;
+    NodeConfig.Init.DestDataWidth = DMA_DEST_DATAWIDTH_WORD;  // CRITICAL: DAC register is 32-bit
+    NodeConfig.Init.SrcBurstLength = 1;
+    NodeConfig.Init.DestBurstLength = 1;
+    NodeConfig.Init.TransferAllocatedPort = DMA_SRC_ALLOCATED_PORT1|DMA_DEST_ALLOCATED_PORT0;
+    NodeConfig.Init.TransferEventMode = DMA_TCEM_BLOCK_TRANSFER;
+    NodeConfig.Init.Mode = DMA_NORMAL;
+    NodeConfig.TriggerConfig.TriggerPolarity = DMA_TRIG_POLARITY_MASKED;
+    NodeConfig.DataHandlingConfig.DataExchange = DMA_EXCHANGE_NONE;
+    NodeConfig.DataHandlingConfig.DataAlignment = DMA_DATA_RIGHTALIGN_ZEROPADDED;
+    if (HAL_DMAEx_List_BuildNode(&NodeConfig, &Node_GPDMA2_Channel1) != HAL_OK)
+    {
+      Error_Handler();
+    }
+
+    if (HAL_DMAEx_List_InsertNode(&List_GPDMA2_Channel1, NULL, &Node_GPDMA2_Channel1) != HAL_OK)
+    {
+      Error_Handler();
+    }
+
+    if (HAL_DMAEx_List_SetCircularMode(&List_GPDMA2_Channel1) != HAL_OK)
+    {
+      Error_Handler();
+    }
+
+    handle_GPDMA2_Channel1.Instance = GPDMA2_Channel1;
+    handle_GPDMA2_Channel1.InitLinkedList.Priority = DMA_LOW_PRIORITY_HIGH_WEIGHT;
+    handle_GPDMA2_Channel1.InitLinkedList.LinkStepMode = DMA_LSM_FULL_EXECUTION;
+    handle_GPDMA2_Channel1.InitLinkedList.LinkAllocatedPort = DMA_LINK_ALLOCATED_PORT1;
+    handle_GPDMA2_Channel1.InitLinkedList.TransferEventMode = DMA_TCEM_BLOCK_TRANSFER;
+    handle_GPDMA2_Channel1.InitLinkedList.LinkedListMode = DMA_LINKEDLIST_CIRCULAR;
+    if (HAL_DMAEx_List_Init(&handle_GPDMA2_Channel1) != HAL_OK)
+    {
+      Error_Handler();
+    }
+
+    if (HAL_DMAEx_List_LinkQ(&handle_GPDMA2_Channel1, &List_GPDMA2_Channel1) != HAL_OK)
+    {
+      Error_Handler();
+    }
+
+    __HAL_LINKDMA(hdac, DMA_Handle2, handle_GPDMA2_Channel1);
+
+    if (HAL_DMA_ConfigChannelAttributes(&handle_GPDMA2_Channel1, DMA_CHANNEL_NPRIV) != HAL_OK)
+    {
+      Error_Handler();
+    }
+
+    /* GPDMA2_REQUEST_DAC1_CH1 Init - INDEPENDENT MODE */
+    /* NOTE: Each channel uses its own DHR12Rx register */
+    NodeConfig.NodeType = DMA_GPDMA_LINEAR_NODE;
+    NodeConfig.Init.Request = GPDMA2_REQUEST_DAC1_CH1;
+    NodeConfig.Init.BlkHWRequest = DMA_BREQ_SINGLE_BURST;
+    NodeConfig.Init.Direction = DMA_MEMORY_TO_PERIPH;
+    NodeConfig.Init.SrcInc = DMA_SINC_INCREMENTED;
+    NodeConfig.Init.DestInc = DMA_DINC_FIXED;
+    NodeConfig.Init.SrcDataWidth = DMA_SRC_DATAWIDTH_HALFWORD;
+    NodeConfig.Init.DestDataWidth = DMA_DEST_DATAWIDTH_WORD;  // CRITICAL: DAC register is 32-bit
+    NodeConfig.Init.SrcBurstLength = 1;
+    NodeConfig.Init.DestBurstLength = 1;
+    NodeConfig.Init.TransferAllocatedPort = DMA_SRC_ALLOCATED_PORT1|DMA_DEST_ALLOCATED_PORT0;
+    NodeConfig.Init.TransferEventMode = DMA_TCEM_BLOCK_TRANSFER;
+    NodeConfig.Init.Mode = DMA_NORMAL;
+    NodeConfig.TriggerConfig.TriggerPolarity = DMA_TRIG_POLARITY_MASKED;
+    NodeConfig.DataHandlingConfig.DataExchange = DMA_EXCHANGE_NONE;
+    NodeConfig.DataHandlingConfig.DataAlignment = DMA_DATA_RIGHTALIGN_ZEROPADDED;
+    if (HAL_DMAEx_List_BuildNode(&NodeConfig, &Node_GPDMA2_Channel0) != HAL_OK)
+    {
+      Error_Handler();
+    }
+
+    if (HAL_DMAEx_List_InsertNode(&List_GPDMA2_Channel0, NULL, &Node_GPDMA2_Channel0) != HAL_OK)
+    {
+      Error_Handler();
+    }
+
+    if (HAL_DMAEx_List_SetCircularMode(&List_GPDMA2_Channel0) != HAL_OK)
+    {
+      Error_Handler();
+    }
+
+    handle_GPDMA2_Channel0.Instance = GPDMA2_Channel0;
+    handle_GPDMA2_Channel0.InitLinkedList.Priority = DMA_LOW_PRIORITY_HIGH_WEIGHT;
+    handle_GPDMA2_Channel0.InitLinkedList.LinkStepMode = DMA_LSM_FULL_EXECUTION;
+    handle_GPDMA2_Channel0.InitLinkedList.LinkAllocatedPort = DMA_LINK_ALLOCATED_PORT1;
+    handle_GPDMA2_Channel0.InitLinkedList.TransferEventMode = DMA_TCEM_BLOCK_TRANSFER;
+    handle_GPDMA2_Channel0.InitLinkedList.LinkedListMode = DMA_LINKEDLIST_CIRCULAR;
+    if (HAL_DMAEx_List_Init(&handle_GPDMA2_Channel0) != HAL_OK)
+    {
+      Error_Handler();
+    }
+
+    if (HAL_DMAEx_List_LinkQ(&handle_GPDMA2_Channel0, &List_GPDMA2_Channel0) != HAL_OK)
+    {
+      Error_Handler();
+    }
+
+    __HAL_LINKDMA(hdac, DMA_Handle1, handle_GPDMA2_Channel0);
+
+    if (HAL_DMA_ConfigChannelAttributes(&handle_GPDMA2_Channel0, DMA_CHANNEL_NPRIV) != HAL_OK)
+    {
+      Error_Handler();
+    }
+
     /* USER CODE BEGIN DAC1_MspInit 1 */
 
-    // TODO: DMA priority override causes re-initialization issue
-    // Commenting out for now - will fix priority in CubeMX later
-    // handle_GPDMA1_Channel6.InitLinkedList.Priority = DMA_HIGH_PRIORITY;
-    // handle_GPDMA1_Channel7.InitLinkedList.Priority = DMA_HIGH_PRIORITY;
-    // HAL_DMAEx_List_Init(&handle_GPDMA1_Channel6);
-    // HAL_DMAEx_List_Init(&handle_GPDMA1_Channel7);
-
-    printf("[DEBUG] DAC1 MSP Init - DMA Handles linked\r\n");
+    // INDEPENDENT MODE: Each channel uses its own DHR12Rx register
+    // DAC CH1 → DHR12R1 (configured by HAL automatically)
+    // DAC CH2 → DHR12R2 (configured by HAL automatically)
+    printf("[DAC_MSP] INDEPENDENT MODE: CH1 DMA=0x%p, CH2 DMA=0x%p\r\n",
+           &handle_GPDMA2_Channel0, &handle_GPDMA2_Channel1);
 
     /* USER CODE END DAC1_MspInit 1 */
 
@@ -173,8 +292,9 @@ void HAL_DAC_MspDeInit(DAC_HandleTypeDef* hdac)
     */
     HAL_GPIO_DeInit(GPIOA, GPIO_PIN_4|GPIO_PIN_5);
 
-    /* DAC1 interrupt DeInit */
-    HAL_NVIC_DisableIRQ(DAC1_IRQn);
+    /* DAC1 DMA DeInit */
+    HAL_DMA_DeInit(hdac->DMA_Handle2);
+    HAL_DMA_DeInit(hdac->DMA_Handle1);
     /* USER CODE BEGIN DAC1_MspDeInit 1 */
 
     /* USER CODE END DAC1_MspDeInit 1 */
@@ -265,21 +385,12 @@ void HAL_SPI_MspInit(SPI_HandleTypeDef* hspi)
     /* Peripheral clock enable */
     __HAL_RCC_SPI1_CLK_ENABLE();
 
-    __HAL_RCC_GPIOA_CLK_ENABLE();
     __HAL_RCC_GPIOB_CLK_ENABLE();
     /**SPI1 GPIO Configuration
-    PA15(JTDI)     ------> SPI1_NSS
     PB3(JTDO/TRACESWO)     ------> SPI1_SCK
     PB4(NJTRST)     ------> SPI1_MISO
     PB5     ------> SPI1_MOSI
     */
-    GPIO_InitStruct.Pin = GPIO_PIN_15;
-    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-    GPIO_InitStruct.Pull = GPIO_NOPULL;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-    GPIO_InitStruct.Alternate = GPIO_AF5_SPI1;
-    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
     GPIO_InitStruct.Pin = GPIO_PIN_3|GPIO_PIN_4|GPIO_PIN_5;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
@@ -372,13 +483,10 @@ void HAL_SPI_MspDeInit(SPI_HandleTypeDef* hspi)
     __HAL_RCC_SPI1_CLK_DISABLE();
 
     /**SPI1 GPIO Configuration
-    PA15(JTDI)     ------> SPI1_NSS
     PB3(JTDO/TRACESWO)     ------> SPI1_SCK
     PB4(NJTRST)     ------> SPI1_MISO
     PB5     ------> SPI1_MOSI
     */
-    HAL_GPIO_DeInit(GPIOA, GPIO_PIN_15);
-
     HAL_GPIO_DeInit(GPIOB, GPIO_PIN_3|GPIO_PIN_4|GPIO_PIN_5);
 
     /* SPI1 DMA DeInit */
@@ -402,7 +510,18 @@ void HAL_SPI_MspDeInit(SPI_HandleTypeDef* hspi)
   */
 void HAL_TIM_Base_MspInit(TIM_HandleTypeDef* htim_base)
 {
-  if(htim_base->Instance==TIM7)
+  if(htim_base->Instance==TIM1)
+  {
+    /* USER CODE BEGIN TIM1_MspInit 0 */
+
+    /* USER CODE END TIM1_MspInit 0 */
+    /* Peripheral clock enable */
+    __HAL_RCC_TIM1_CLK_ENABLE();
+    /* USER CODE BEGIN TIM1_MspInit 1 */
+
+    /* USER CODE END TIM1_MspInit 1 */
+  }
+  else if(htim_base->Instance==TIM7)
   {
     /* USER CODE BEGIN TIM7_MspInit 0 */
 
@@ -415,7 +534,6 @@ void HAL_TIM_Base_MspInit(TIM_HandleTypeDef* htim_base)
     /* USER CODE BEGIN TIM7_MspInit 1 */
 
     /* USER CODE END TIM7_MspInit 1 */
-
   }
 
 }
@@ -428,7 +546,18 @@ void HAL_TIM_Base_MspInit(TIM_HandleTypeDef* htim_base)
   */
 void HAL_TIM_Base_MspDeInit(TIM_HandleTypeDef* htim_base)
 {
-  if(htim_base->Instance==TIM7)
+  if(htim_base->Instance==TIM1)
+  {
+    /* USER CODE BEGIN TIM1_MspDeInit 0 */
+
+    /* USER CODE END TIM1_MspDeInit 0 */
+    /* Peripheral clock disable */
+    __HAL_RCC_TIM1_CLK_DISABLE();
+    /* USER CODE BEGIN TIM1_MspDeInit 1 */
+
+    /* USER CODE END TIM1_MspDeInit 1 */
+  }
+  else if(htim_base->Instance==TIM7)
   {
     /* USER CODE BEGIN TIM7_MspDeInit 0 */
 

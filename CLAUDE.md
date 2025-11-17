@@ -144,7 +144,23 @@ VS Code "Serial Monitor" 태스크 또는 COM 포트의 외부 터미널로 출�
 1. STM32CubeMX에서 `audio_dac_v100.ioc` 열기
 2. CubeMX GUI에서 변경
 3. 코드 생성 (main.c를 덮어쓰지만 USER CODE 섹션은 보존)
-4. 프로젝트 리빌드
+4. **⚠️ 중요: 코드 재생성 후 `STM32H5_CODEGEN_BUGS.md` 문서를 참고해서 알려진 버그들을 패치하세요!**
+5. 프로젝트 리빌드
+
+### STM32H5 CubeMX 코드 생성 버그
+
+CubeMX로 코드를 재생성할 때 발생하는 알려진 버그들이 있습니다:
+- **GPDMA2 DAC DMA 초기화 불일치** (CRITICAL): Channel 0가 Direct Init으로 생성되어 Circular 모드 작동 안 함
+- **DMA Node Type 오류**: 2D_NODE 대신 LINEAR_NODE 필요
+- **DCACHE 일관성**: DMA 전/후 캐시 동기화 필요
+
+**📖 자세한 내용은 `STM32H5_CODEGEN_BUGS.md` 문서를 참조하세요.**
+
+CubeMX로 코드를 재생성한 후에는:
+1. `STM32H5_CODEGEN_BUGS.md` 문서 열기
+2. "체크리스트: 코드 재생성 후 확인 사항" 섹션 확인
+3. 필요한 패치 적용
+4. 빌드 및 테스트
 
 ## 일반적인 패턴
 
@@ -202,3 +218,31 @@ arm-none-eabi-objdump -d Debug/audio_dac_v100.elf > disassembly.txt
 - **DMA 일관성:** 데이터 캐시 활성화됨 - DMA TX 전에 `SCB_CleanDCache_by_Addr()` 사용, DMA RX 후에 `SCB_InvalidateDCache_by_Addr()` 사용
 - 답변은 항상 한글로 해줘.
 - 빌드는 직접해 줘. 왜냐하면 문법 오류를 바로 수정하게 하고 싶어.
+
+## ⚠️ STM32H5 CubeMX 버그 패치 프로토콜
+
+**중요**: CubeMX로 코드를 재생성할 때마다 다음 절차를 따르세요:
+
+### 코드 재생성 전
+1. 현재 작동하는 코드의 백업 생성
+2. `user_def.c`, `user_def.h`의 사용자 코드 확인
+3. `main.c`의 `USER CODE BEGIN/END` 섹션 확인
+
+### 코드 재생성 후 (필수!)
+1. **즉시** `STM32H5_CODEGEN_BUGS.md` 문서 열기
+2. "버그 #1: GPDMA2 DAC DMA 초기화 방식 불일치" 섹션의 패치 적용
+   - CubeMX 설정 변경 (권장) 또는
+   - 수동 패치 적용 (`stm32h5xx_hal_msp.c`)
+3. 체크리스트의 모든 항목 확인
+4. 빌드 실행하여 컴파일 오류 확인
+5. 기능 테스트 (특히 DAC DMA 동작)
+
+### Claude Code 작업 시
+- CubeMX 코드 재생성이 필요한 경우, **반드시** 사용자에게 재생성 후 `STM32H5_CODEGEN_BUGS.md`의 패치를 적용하도록 안내
+- 버그 패치가 적용되지 않은 코드는 정상 작동하지 않을 수 있음을 명확히 경고
+- GPDMA2 관련 코드 수정 시 항상 LinkedList 방식 사용 여부 확인
+
+### 긴급 참조
+가장 중요한 버그: **GPDMA2 Channel 0이 Direct Init 방식으로 생성됨**
+→ 해결: CubeMX에서 Channel 0을 "Linked-List Queue" 모드로 변경
+- 플래쉬는 CUBEIDE 에서 직접 할거야.

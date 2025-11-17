@@ -206,15 +206,15 @@ COM_Idy_Typ UART3_GetLine(uint8_t *line_buf)
 
 		  	printf_UARTC(&huart3,PR_YEL,"%s\033[%dm\r\n",line_buf,PR_INI);
 
-		  	// 유효한 명령어 체크 (help, stvc, stst, rdat, 0~5)
+		  	// 유효한 명령어 체크 (help, stvc, stst, rdat, 0~6)
 		  	if
 				(
 						(strncmp((char *)line_buf,"help",4) == 0) ||
 						(strncmp((char *)line_buf,"stvc",4) == 0) ||
 						(strncmp((char *)line_buf,"stst",4) == 0) ||
 						(strncmp((char *)line_buf,"rdat",4) == 0) ||
-						// 0~5 숫자 명령어 (한 글자만)
-						(strlen((char *)line_buf) == 1 && line_buf[0] >= '0' && line_buf[0] <= '5')
+						// 0~6 숫자 명령어 (한 글자만)
+						(strlen((char *)line_buf) == 1 && line_buf[0] >= '0' && line_buf[0] <= '6')
 				)
 				{
 					rtn_val = RCV_LINE;
